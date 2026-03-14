@@ -11,6 +11,7 @@ CONFIG ?= debug
 BIN := bin
 OBJ := obj
 SRC := src
+LIB := libs
 SHD := shaders
 OUT := $(BIN)/$(CONFIG)
 TMP := $(OBJ)/$(CONFIG)
@@ -19,7 +20,7 @@ EXE := $(OUT)/demo
 CC       := clang
 LDFLAGS  :=
 # LDLIBS   := -lm
-CPPFLAGS := -I$(SRC) -I$(SRC)/sokol -I$(SHD)
+CPPFLAGS := -I$(SRC) -I$(LIB)/sokol -I$(SHD)
 CFLAGS   := -std=c11
 CFLAGS   := -MMD
 CFLAGS   += -Werror -Wall -Wextra -Wpedantic -Wshadow -Wswitch-enum
