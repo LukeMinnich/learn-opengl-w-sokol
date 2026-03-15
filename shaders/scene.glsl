@@ -2,26 +2,26 @@
 
 @vs scene_vs
 in vec3 aPos;
+in vec3 aColor;
+
+out vec3 ourColor;
 
 void main(
 	void
 ) {
 	gl_Position = vec4(aPos, 1.);
+	ourColor = aColor;
 }
 @end
 
 @fs scene_fs
-layout(binding=0) uniform scene_fs_params {
-	vec4 ourColor;
-};
-
-// in vec4 gl_FragCoord;
 out vec4 FragColor;
+in vec3 ourColor;
 
 void main(
 	void
 ) {
-	FragColor = ourColor;
+	FragColor = vec4(ourColor, 1.);
 }
 @end
 

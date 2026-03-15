@@ -12,30 +12,11 @@
 typedef float f32;
 typedef uint16_t u16;
 
-#define INDEXED_DRAWING 1
-
-#if INDEXED_DRAWING
-/* Indexed drawing */
 static const f32 vertices[] = {
-	 0.5f,  0.5f, 0.0f,
-	 0.5f, -0.5f, 0.0f,
-	-0.5f, -0.5f, 0.0f,
-	-0.5f,  0.5f, 0.0f,
+	 0.5f, -0.5f, 0.0f,  1.0f, 0.0f, 0.0f,   // bottom right
+	-0.5f, -0.5f, 0.0f,  0.0f, 1.0f, 0.0f,   // bottom left
+	 0.0f,  0.5f, 0.0f,  0.0f, 0.0f, 1.0f    // top 
 };
-static const u16 indices[] = {
-	0, 1, 3, // first triangle
-	1, 2, 3, // second triangle
-}; 
-#else
-static const f32 vertices[] = {
-	 0.5f,  0.5f, 0.0f,
-	 0.5f, -0.5f, 0.0f,
-	-0.5f,  0.5f, 0.0f,
-	 0.5f, -0.5f, 0.0f,
-	-0.5f, -0.5f, 0.0f,
-	-0.5f,  0.5f, 0.0f,
-};
-#endif
 
 typedef struct {
 	sg_pipeline pipeline;
@@ -52,33 +33,19 @@ state_init(
 	*state = (AppState){
 		.pipeline = sg_make_pipeline(&(sg_pipeline_desc){
 			.shader = sg_make_shader(scene_shader_desc(sg_query_backend())),
-#if INDEXED_DRAWING
-			.index_type = SG_INDEXTYPE_UINT16,
-#endif
 			.layout = {
 				.attrs = {
 					[ATTR_scene_aPos].format = SG_VERTEXFORMAT_FLOAT3,
+					[ATTR_scene_aColor].format = SG_VERTEXFORMAT_FLOAT3,
 				}
 			},
 			.label = "scene-pipeline"
 		}),
-#if INDEXED_DRAWING
 		.bindings.vertex_buffers[0] = sg_make_buffer(&(sg_buffer_desc){
 			.usage.vertex_buffer = true,
 			.data = SG_RANGE(vertices),
 			.label = "vertex-buffer",
 		}),
-		.bindings.index_buffer = sg_make_buffer(&(sg_buffer_desc){
-			.usage.index_buffer = true,
-			.data = SG_RANGE(indices),
-			.label = "index-buffer",
-		}),
-#else
-		.bindings.vertex_buffers[0] = sg_make_buffer(&(sg_buffer_desc){
-			.data = SG_RANGE(vertices),
-			.label = "vertex-buffer",
-		}),
-#endif
 		.pass_action = (sg_pass_action) {
 			.colors[0] = {
 				.load_action = SG_LOADACTION_CLEAR,
@@ -99,15 +66,7 @@ app_frame(
 	});
 	sg_apply_pipeline(state->pipeline);
 	sg_apply_bindings(&state->bindings);
-	scene_fs_params_t fs_params = {
-		.ourColor[1] = 0.5f * (1 + sinf(stm_sec(stm_now()))),
-	};
-	sg_apply_uniforms(UB_scene_fs_params, &SG_RANGE(fs_params));
-#if INDEXED_DRAWING
-	sg_draw(0, countof(indices), 1);
-#else
-	sg_draw(0, countof(vertices) / 3, 1);
-#endif
+	sg_draw(0, countof(vertices) / 6, 1);
 	sg_end_pass();
 	sg_commit();
 }
