@@ -14,18 +14,68 @@
 
 typedef float f32;
 typedef uint16_t u16;
+typedef size_t usize;
 typedef unsigned char byte;
 
+#define WIDTH 800
+#define HEIGHT 600
+
 static const f32 vertices[] = {
-	 0.5f,  0.5f, 0.0f,   1.0f, 0.0f, 0.0f,   1.0f, 1.0f,   // top right
-	 0.5f, -0.5f, 0.0f,   0.0f, 1.0f, 0.0f,   1.0f, 0.0f,   // bottom right
-	-0.5f, -0.5f, 0.0f,   0.0f, 0.0f, 1.0f,   0.0f, 0.0f,   // bottom left
-	-0.5f,  0.5f, 0.0f,   1.0f, 1.0f, 0.0f,   0.0f, 1.0f,   // top left
+    -0.5f, -0.5f, -0.5f,  0.0f, 0.0f,
+     0.5f, -0.5f, -0.5f,  1.0f, 0.0f,
+     0.5f,  0.5f, -0.5f,  1.0f, 1.0f,
+     0.5f,  0.5f, -0.5f,  1.0f, 1.0f,
+    -0.5f,  0.5f, -0.5f,  0.0f, 1.0f,
+    -0.5f, -0.5f, -0.5f,  0.0f, 0.0f,
+
+    -0.5f, -0.5f,  0.5f,  0.0f, 0.0f,
+     0.5f, -0.5f,  0.5f,  1.0f, 0.0f,
+     0.5f,  0.5f,  0.5f,  1.0f, 1.0f,
+     0.5f,  0.5f,  0.5f,  1.0f, 1.0f,
+    -0.5f,  0.5f,  0.5f,  0.0f, 1.0f,
+    -0.5f, -0.5f,  0.5f,  0.0f, 0.0f,
+
+    -0.5f,  0.5f,  0.5f,  1.0f, 0.0f,
+    -0.5f,  0.5f, -0.5f,  1.0f, 1.0f,
+    -0.5f, -0.5f, -0.5f,  0.0f, 1.0f,
+    -0.5f, -0.5f, -0.5f,  0.0f, 1.0f,
+    -0.5f, -0.5f,  0.5f,  0.0f, 0.0f,
+    -0.5f,  0.5f,  0.5f,  1.0f, 0.0f,
+
+     0.5f,  0.5f,  0.5f,  1.0f, 0.0f,
+     0.5f,  0.5f, -0.5f,  1.0f, 1.0f,
+     0.5f, -0.5f, -0.5f,  0.0f, 1.0f,
+     0.5f, -0.5f, -0.5f,  0.0f, 1.0f,
+     0.5f, -0.5f,  0.5f,  0.0f, 0.0f,
+     0.5f,  0.5f,  0.5f,  1.0f, 0.0f,
+
+    -0.5f, -0.5f, -0.5f,  0.0f, 1.0f,
+     0.5f, -0.5f, -0.5f,  1.0f, 1.0f,
+     0.5f, -0.5f,  0.5f,  1.0f, 0.0f,
+     0.5f, -0.5f,  0.5f,  1.0f, 0.0f,
+    -0.5f, -0.5f,  0.5f,  0.0f, 0.0f,
+    -0.5f, -0.5f, -0.5f,  0.0f, 1.0f,
+
+    -0.5f,  0.5f, -0.5f,  0.0f, 1.0f,
+     0.5f,  0.5f, -0.5f,  1.0f, 1.0f,
+     0.5f,  0.5f,  0.5f,  1.0f, 0.0f,
+     0.5f,  0.5f,  0.5f,  1.0f, 0.0f,
+    -0.5f,  0.5f,  0.5f,  0.0f, 0.0f,
+    -0.5f,  0.5f, -0.5f,  0.0f, 1.0f
 };
-static const u16 indices[] = {
-	0, 1, 3,
-	1, 2, 3,
-};
+
+static const HMM_Vec3 cube_positions[] = {
+    { .X =  0.0f, .Y =  0.0f, .Z =   0.0f },
+    { .X =  2.0f, .Y =  5.0f, .Z = -15.0f },
+    { .X = -1.5f, .Y = -2.2f, .Z =  -2.5f },
+    { .X = -3.8f, .Y = -2.0f, .Z = -12.3f },
+    { .X =  2.4f, .Y = -0.4f, .Z =  -3.5f },
+    { .X = -1.7f, .Y =  3.0f, .Z =  -7.5f },
+    { .X =  1.3f, .Y = -2.0f, .Z =  -2.5f },
+    { .X =  1.5f, .Y =  2.0f, .Z =  -2.5f },
+    { .X =  1.5f, .Y =  0.2f, .Z =  -1.5f },
+    { .X = -1.3f, .Y =  1.0f, .Z =  -1.5f },
+  };
 
 typedef struct {
 	sg_pipeline pipeline;
@@ -73,22 +123,19 @@ state_init(
 			.layout = {
 				.attrs = {
 					[ATTR_scene_aPos].format = SG_VERTEXFORMAT_FLOAT3,
-					[ATTR_scene_aColor].format = SG_VERTEXFORMAT_FLOAT3,
 					[ATTR_scene_aTexCoord].format = SG_VERTEXFORMAT_FLOAT2,
 				}
 			},
-			.index_type = SG_INDEXTYPE_UINT16,
-			.label = "scene-pipeline"
+			.label = "scene-pipeline",
+			.depth = {
+				.write_enabled = true,
+				.compare = SG_COMPAREFUNC_LESS_EQUAL,
+			}
 		}),
 		.bindings.vertex_buffers[0] = sg_make_buffer(&(sg_buffer_desc){
 			.usage.vertex_buffer = true,
 			.data = SG_RANGE(vertices),
 			.label = "vertex-buffer",
-		}),
-		.bindings.index_buffer = sg_make_buffer(&(sg_buffer_desc){
-			.usage.index_buffer = true,
-			.data = SG_RANGE(indices),
-			.label = "index-buffer",
 		}),
 		.bindings.views[VIEW_boxTexture] = sg_make_view(&(sg_view_desc){
 			.texture = {.image = box_img },
@@ -128,15 +175,18 @@ app_frame(
 	});
 	sg_apply_pipeline(state->pipeline);
 	sg_apply_bindings(&state->bindings);
-	{
-		HMM_Mat4 translation = HMM_Translate(HMM_V3(0.5f, -0.5f, 0.0f));
-		HMM_Mat4 rotation = HMM_Rotate_RH(stm_sec(stm_now()), HMM_V3(0.f, 0.f, 1.f));
-		scene_vs_params_t vs_params = {
-			.transform = HMM_Mul(translation, rotation),
-		};
+
+	scene_vs_params_t vs_params = {
+		.view       = HMM_Translate(HMM_V3(0.f, 0.f, -3.f)),
+		.projection = HMM_Perspective_RH_NO(HMM_AngleDeg(45.f), (f32)WIDTH / (f32)HEIGHT, 0.1f, 100.f),
+	};
+	for (usize i = 0; i < countof(cube_positions); ++i) {
+		vs_params.model = HMM_Mul(HMM_Translate(cube_positions[i]),
+		                          HMM_Rotate_RH(HMM_AngleDeg(20.f * i), HMM_V3(1.f, 0.3f, 0.5f)));
 		sg_apply_uniforms(UB_scene_vs_params, &SG_RANGE(vs_params));
+		sg_draw(0, countof(vertices) / 5, 1);
 	}
-	sg_draw(0, countof(indices), 1);
+
 	sg_end_pass();
 	sg_commit();
 }
@@ -185,8 +235,8 @@ sapp_desc sokol_main(
 		.cleanup_userdata_cb = app_cleanup,
 		.user_data = state,
 		.event_cb = app_handle_event,
-		.width = 800,
-		.height = 600,
+		.width = WIDTH,
+		.height = HEIGHT,
 		.window_title = "Triangle",
 		.icon.sokol_default = true,
 		.logger.func = slog_func,

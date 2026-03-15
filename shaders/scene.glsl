@@ -5,20 +5,19 @@
 
 @vs scene_vs
 layout(binding=0) uniform scene_vs_params {
-	mat4 transform;
+	mat4 model;
+	mat4 view;
+	mat4 projection;
 };
 in vec3 aPos;
-in vec3 aColor;
 in vec2 aTexCoord;
 
-out vec3 ourColor;
 out vec2 TexCoord;
 
 void main(
 	void
 ) {
-	gl_Position = transform * vec4(aPos, 1.);
-	ourColor = aColor;
+	gl_Position = projection * view * model * vec4(aPos, 1.);
 	TexCoord = aTexCoord;
 }
 @end
@@ -29,7 +28,6 @@ layout(binding=0) uniform sampler boxSampler;
 layout(binding=1) uniform texture2D faceTexture;
 layout(binding=1) uniform sampler faceSampler;
 
-in vec3 ourColor;
 in vec2 TexCoord;
 
 out vec4 FragColor;
