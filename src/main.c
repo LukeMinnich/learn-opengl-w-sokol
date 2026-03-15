@@ -6,6 +6,7 @@
 #include "sokol_log.h"
 #include "sokol_time.h"
 
+#include <math.h>
 #include <stdlib.h>
 
 typedef float f32;
@@ -98,6 +99,10 @@ app_frame(
 	});
 	sg_apply_pipeline(state->pipeline);
 	sg_apply_bindings(&state->bindings);
+	scene_fs_params_t fs_params = {
+		.ourColor[1] = 0.5f * (1 + sinf(stm_sec(stm_now()))),
+	};
+	sg_apply_uniforms(UB_scene_fs_params, &SG_RANGE(fs_params));
 #if INDEXED_DRAWING
 	sg_draw(0, countof(indices), 1);
 #else
