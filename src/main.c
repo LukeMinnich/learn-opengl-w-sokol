@@ -6,6 +6,7 @@
 #include "sokol_log.h"
 #include "sokol_time.h"
 
+#include "handmade_math.h"
 #define STB_IMAGE_IMPLEMENTATION
 #include "stb_image.h"
 
@@ -127,6 +128,14 @@ app_frame(
 	});
 	sg_apply_pipeline(state->pipeline);
 	sg_apply_bindings(&state->bindings);
+	{
+		HMM_Mat4 translation = HMM_Translate(HMM_V3(0.5f, -0.5f, 0.0f));
+		HMM_Mat4 rotation = HMM_Rotate_RH(stm_sec(stm_now()), HMM_V3(0.f, 0.f, 1.f));
+		scene_vs_params_t vs_params = {
+			.transform = HMM_Mul(translation, rotation),
+		};
+		sg_apply_uniforms(UB_scene_vs_params, &SG_RANGE(vs_params));
+	}
 	sg_draw(0, countof(indices), 1);
 	sg_end_pass();
 	sg_commit();
@@ -176,8 +185,8 @@ sapp_desc sokol_main(
 		.cleanup_userdata_cb = app_cleanup,
 		.user_data = state,
 		.event_cb = app_handle_event,
-		.width = 640,
-		.height = 480,
+		.width = 800,
+		.height = 600,
 		.window_title = "Triangle",
 		.icon.sokol_default = true,
 		.logger.func = slog_func,

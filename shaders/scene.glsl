@@ -1,6 +1,12 @@
+@header #include "handmade_math.h"
 @header #include "sokol_gfx.h"
 
+@ctype mat4 HMM_Mat4
+
 @vs scene_vs
+layout(binding=0) uniform scene_vs_params {
+	mat4 transform;
+};
 in vec3 aPos;
 in vec3 aColor;
 in vec2 aTexCoord;
@@ -11,7 +17,7 @@ out vec2 TexCoord;
 void main(
 	void
 ) {
-	gl_Position = vec4(aPos, 1.);
+	gl_Position = transform * vec4(aPos, 1.);
 	ourColor = aColor;
 	TexCoord = aTexCoord;
 }
