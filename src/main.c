@@ -290,20 +290,39 @@ app_frame(
 		.view       = HMM_LookAt_RH(state->camera.pos, HMM_Add(state->camera.pos, camera_front), CAMERA_UP),
 		.projection = HMM_Perspective_RH_NO(HMM_AngleDeg(state->camera.fov), (f32)WIDTH / (f32)HEIGHT, 0.1f, 100.f),
 	};
+
+	HMM_Vec3 light_color = HMM_V3(sin(stm_sec(current_frame) * 2.0f),
+	                              sin(stm_sec(current_frame) * 0.7f),
+	                              sin(stm_sec(current_frame) * 1.3f));
+
+	{
+		scene_material_t scene_material = {
+			.mat_ambient = HMM_V3(1.f, 0.5f, 0.31f),
+			.mat_diffuse = HMM_V3(1.f, 0.5f, 0.31f),
+			.mat_specular = HMM_V3(0.5f, 0.5f, 0.5f),
+			.mat_shininess = 32.f,
+		};
+		sg_apply_uniforms(UB_scene_material, &SG_RANGE(scene_material));
+
+		scene_light_t scene_light = {
+			.light_position = light_pos,
+			.light_ambient = HMM_Mul(light_color, 0.2f),
+			.light_diffuse = HMM_Mul(light_color, 0.5f),
+			.light_specular = HMM_V3(1.f, 1.f, 1.f),
+		};
+		sg_apply_uniforms(UB_scene_light, &SG_RANGE(scene_light));
+	}
+
 	for (usize i = 0; i < countof(cube_positions); ++i) {
-	// usize i = 0;
-	scene_vs_params.model = HMM_Mul(HMM_Translate(cube_positions[i]),
-	                                HMM_Rotate_RH(HMM_AngleDeg(20.f * i), HMM_V3(1.f, 0.3f, 0.5f)));
-	scene_vs_params.normal = HMM_Transpose(HMM_InvGeneral(scene_vs_params.model));
-	sg_apply_uniforms(UB_scene_vs_params, &SG_RANGE(scene_vs_params));
-	scene_fs_params_t scene_fs_params = {
-		.objectColor = HMM_V3(1.f, 0.5f, 0.31f),
-		.lightColor  = HMM_V3(1.f, 1.f, 1.f),
-		.lightPos    = light_pos,
-		.viewPos     = state->camera.pos,
-	};
-	sg_apply_uniforms(UB_scene_fs_params, &SG_RANGE(scene_fs_params));
-	sg_draw(0, countof(lighting_target_vertices), 1);
+		scene_vs_params.model = HMM_Mul(HMM_Translate(cube_positions[i]),
+		                                HMM_Rotate_RH(HMM_AngleDeg(20.f * i), HMM_V3(1.f, 0.3f, 0.5f)));
+		scene_vs_params.normal = HMM_Transpose(HMM_InvGeneral(scene_vs_params.model));
+		sg_apply_uniforms(UB_scene_vs_params, &SG_RANGE(scene_vs_params));
+		scene_fs_params_t scene_fs_params = {
+			.viewPos     = state->camera.pos,
+		};
+		sg_apply_uniforms(UB_scene_fs_params, &SG_RANGE(scene_fs_params));
+		sg_draw(0, countof(lighting_target_vertices), 1);
 	}
 
 	{
@@ -316,6 +335,10 @@ app_frame(
 		                   HMM_Scale(HMM_V3(0.2f, 0.2f, 0.2f))),
 		};
 		sg_apply_uniforms(UB_light_vs_params, &SG_RANGE(light_vs_params));
+		light_fs_params_t light_fs_params = {
+			.light_color = light_color,
+		};
+		sg_apply_uniforms(UB_light_fs_params, &SG_RANGE(light_fs_params));
 		sg_draw(0, countof(lighting_target_vertices), 1);
 	}
 

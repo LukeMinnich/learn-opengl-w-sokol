@@ -2,6 +2,7 @@
 @header #include "sokol_gfx.h"
 
 @ctype mat4 HMM_Mat4
+@ctype vec3 HMM_Vec3
 
 @vs light_vs
 layout(binding=0) uniform light_vs_params {
@@ -19,12 +20,15 @@ void main(
 @end
 
 @fs light_fs
+layout(binding=1) uniform light_fs_params {
+	vec3 light_color;
+};
 out vec4 FragColor;
 
 void main(
 	void
 ) {
-	FragColor = vec4(1.);
+	FragColor = vec4(light_color, 1.f);
 }
 @end
 

@@ -35,10 +35,19 @@ layout(binding=0) uniform sampler boxSampler;
 layout(binding=1) uniform texture2D faceTexture;
 layout(binding=1) uniform sampler faceSampler;
 layout(binding=1) uniform scene_fs_params {
-	vec3 objectColor;
-	vec3 lightColor;
-	vec3 lightPos;
 	vec3 viewPos;
+};
+layout(binding=2) uniform scene_material {
+	vec3  mat_ambient;
+	vec3  mat_diffuse;
+	vec3  mat_specular;
+	float mat_shininess;
+};
+layout(binding=3) uniform scene_light {
+	vec3  light_position;
+	vec3  light_ambient;
+	vec3  light_diffuse;
+	vec3  light_specular;
 };
 
 in vec2 TexCoord;
@@ -50,21 +59,22 @@ out vec4 FragColor;
 void main(
 	void
 ) {
-	float ambientStrength = 0.1;
-	vec3 ambient = ambientStrength * lightColor;
+	// ambient
+	vec3 ambient = light_ambient * mat_ambient;
 
+	// diffuse
 	vec3 norm = normalize(Normal);
-	vec3 lightDir = normalize(lightPos - FragPos);
+	vec3 lightDir = normalize(light_position - FragPos);
 	float diff = max(dot(norm, lightDir), 0.);
-	vec3 diffuse = diff * lightColor;
+	vec3 diffuse = light_diffuse * (diff * mat_diffuse);
 
-	float specularStrength = 0.5;
+	// specular
 	vec3 viewDir = normalize(viewPos - FragPos);
 	vec3 reflectDir = reflect(-lightDir, norm);
-	float spec = pow(max(dot(viewDir, reflectDir), 0.), 32);
-	vec3 specular = specularStrength * spec * lightColor;
+	float spec = pow(max(dot(viewDir, reflectDir), 0.), mat_shininess);
+	vec3 specular = light_specular * (spec * mat_specular);
 
-	vec3 result = (ambient + diffuse + specular) * objectColor;
+	vec3 result = ambient + diffuse + specular;
 	FragColor = vec4(result, 1.);
 }
 @end
