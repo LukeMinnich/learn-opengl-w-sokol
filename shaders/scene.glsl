@@ -2,6 +2,7 @@
 @header #include "sokol_gfx.h"
 
 @ctype mat4 HMM_Mat4
+@ctype vec3 HMM_Vec3
 
 @vs scene_vs
 layout(binding=0) uniform scene_vs_params {
@@ -27,6 +28,10 @@ layout(binding=0) uniform texture2D boxTexture;
 layout(binding=0) uniform sampler boxSampler;
 layout(binding=1) uniform texture2D faceTexture;
 layout(binding=1) uniform sampler faceSampler;
+layout(binding=1) uniform scene_fs_params {
+	vec3 objectColor;
+	vec3 lightColor;
+};
 
 in vec2 TexCoord;
 
@@ -35,9 +40,7 @@ out vec4 FragColor;
 void main(
 	void
 ) {
-	FragColor = mix(texture(sampler2D(boxTexture, boxSampler), TexCoord),
-                  texture(sampler2D(faceTexture, faceSampler), TexCoord),
-                  0.2);
+	FragColor = vec4(lightColor * objectColor, 1.);
 }
 @end
 

@@ -1,3 +1,4 @@
+#include "light.glsl.h"
 #include "scene.glsl.h"
 
 #include "sokol_app.h"
@@ -22,61 +23,61 @@ typedef unsigned char byte;
 #define HEIGHT 600
 #define FOV_MAX 45.f
 
-static const f32 vertices[] = {
-	-0.5f, -0.5f, -0.5f,  0.0f, 0.0f,
-	 0.5f, -0.5f, -0.5f,  1.0f, 0.0f,
-	 0.5f,  0.5f, -0.5f,  1.0f, 1.0f,
-	 0.5f,  0.5f, -0.5f,  1.0f, 1.0f,
-	-0.5f,  0.5f, -0.5f,  0.0f, 1.0f,
-	-0.5f, -0.5f, -0.5f,  0.0f, 0.0f,
+typedef struct {
+	HMM_Vec3 pos;
+	HMM_Vec2 tex;
+} Vertex;
 
-	-0.5f, -0.5f,  0.5f,  0.0f, 0.0f,
-	 0.5f, -0.5f,  0.5f,  1.0f, 0.0f,
-	 0.5f,  0.5f,  0.5f,  1.0f, 1.0f,
-	 0.5f,  0.5f,  0.5f,  1.0f, 1.0f,
-	-0.5f,  0.5f,  0.5f,  0.0f, 1.0f,
-	-0.5f, -0.5f,  0.5f,  0.0f, 0.0f,
-
-	-0.5f,  0.5f,  0.5f,  1.0f, 0.0f,
-	-0.5f,  0.5f, -0.5f,  1.0f, 1.0f,
-	-0.5f, -0.5f, -0.5f,  0.0f, 1.0f,
-	-0.5f, -0.5f, -0.5f,  0.0f, 1.0f,
-	-0.5f, -0.5f,  0.5f,  0.0f, 0.0f,
-	-0.5f,  0.5f,  0.5f,  1.0f, 0.0f,
-
-	 0.5f,  0.5f,  0.5f,  1.0f, 0.0f,
-	 0.5f,  0.5f, -0.5f,  1.0f, 1.0f,
-	 0.5f, -0.5f, -0.5f,  0.0f, 1.0f,
-	 0.5f, -0.5f, -0.5f,  0.0f, 1.0f,
-	 0.5f, -0.5f,  0.5f,  0.0f, 0.0f,
-	 0.5f,  0.5f,  0.5f,  1.0f, 0.0f,
-
-	-0.5f, -0.5f, -0.5f,  0.0f, 1.0f,
-	 0.5f, -0.5f, -0.5f,  1.0f, 1.0f,
-	 0.5f, -0.5f,  0.5f,  1.0f, 0.0f,
-	 0.5f, -0.5f,  0.5f,  1.0f, 0.0f,
-	-0.5f, -0.5f,  0.5f,  0.0f, 0.0f,
-	-0.5f, -0.5f, -0.5f,  0.0f, 1.0f,
-
-	-0.5f,  0.5f, -0.5f,  0.0f, 1.0f,
-	 0.5f,  0.5f, -0.5f,  1.0f, 1.0f,
-	 0.5f,  0.5f,  0.5f,  1.0f, 0.0f,
-	 0.5f,  0.5f,  0.5f,  1.0f, 0.0f,
-	-0.5f,  0.5f,  0.5f,  0.0f, 0.0f,
-	-0.5f,  0.5f, -0.5f,  0.0f, 1.0f
+static const Vertex lighting_target_vertices[] = {
+	{{ .X = -0.5f, .Y = -0.5f, .Z = -0.5f },{ .U = 0.0f, .V = 0.0f }},
+	{{ .X =  0.5f, .Y = -0.5f, .Z = -0.5f },{ .U = 1.0f, .V = 0.0f }},
+	{{ .X =  0.5f, .Y =  0.5f, .Z = -0.5f },{ .U = 1.0f, .V = 1.0f }},
+	{{ .X =  0.5f, .Y =  0.5f, .Z = -0.5f },{ .U = 1.0f, .V = 1.0f }},
+	{{ .X = -0.5f, .Y =  0.5f, .Z = -0.5f },{ .U = 0.0f, .V = 1.0f }},
+	{{ .X = -0.5f, .Y = -0.5f, .Z = -0.5f },{ .U = 0.0f, .V = 0.0f }},
+	{{ .X = -0.5f, .Y = -0.5f, .Z =  0.5f },{ .U = 0.0f, .V = 0.0f }},
+	{{ .X =  0.5f, .Y = -0.5f, .Z =  0.5f },{ .U = 1.0f, .V = 0.0f }},
+	{{ .X =  0.5f, .Y =  0.5f, .Z =  0.5f },{ .U = 1.0f, .V = 1.0f }},
+	{{ .X =  0.5f, .Y =  0.5f, .Z =  0.5f },{ .U = 1.0f, .V = 1.0f }},
+	{{ .X = -0.5f, .Y =  0.5f, .Z =  0.5f },{ .U = 0.0f, .V = 1.0f }},
+	{{ .X = -0.5f, .Y = -0.5f, .Z =  0.5f },{ .U = 0.0f, .V = 0.0f }},
+	{{ .X = -0.5f, .Y =  0.5f, .Z =  0.5f },{ .U = 1.0f, .V = 0.0f }},
+	{{ .X = -0.5f, .Y =  0.5f, .Z = -0.5f },{ .U = 1.0f, .V = 1.0f }},
+	{{ .X = -0.5f, .Y = -0.5f, .Z = -0.5f },{ .U = 0.0f, .V = 1.0f }},
+	{{ .X = -0.5f, .Y = -0.5f, .Z = -0.5f },{ .U = 0.0f, .V = 1.0f }},
+	{{ .X = -0.5f, .Y = -0.5f, .Z =  0.5f },{ .U = 0.0f, .V = 0.0f }},
+	{{ .X = -0.5f, .Y =  0.5f, .Z =  0.5f },{ .U = 1.0f, .V = 0.0f }},
+	{{ .X =  0.5f, .Y =  0.5f, .Z =  0.5f },{ .U = 1.0f, .V = 0.0f }},
+	{{ .X =  0.5f, .Y =  0.5f, .Z = -0.5f },{ .U = 1.0f, .V = 1.0f }},
+	{{ .X =  0.5f, .Y = -0.5f, .Z = -0.5f },{ .U = 0.0f, .V = 1.0f }},
+	{{ .X =  0.5f, .Y = -0.5f, .Z = -0.5f },{ .U = 0.0f, .V = 1.0f }},
+	{{ .X =  0.5f, .Y = -0.5f, .Z =  0.5f },{ .U = 0.0f, .V = 0.0f }},
+	{{ .X =  0.5f, .Y =  0.5f, .Z =  0.5f },{ .U = 1.0f, .V = 0.0f }},
+	{{ .X = -0.5f, .Y = -0.5f, .Z = -0.5f },{ .U = 0.0f, .V = 1.0f }},
+	{{ .X =  0.5f, .Y = -0.5f, .Z = -0.5f },{ .U = 1.0f, .V = 1.0f }},
+	{{ .X =  0.5f, .Y = -0.5f, .Z =  0.5f },{ .U = 1.0f, .V = 0.0f }},
+	{{ .X =  0.5f, .Y = -0.5f, .Z =  0.5f },{ .U = 1.0f, .V = 0.0f }},
+	{{ .X = -0.5f, .Y = -0.5f, .Z =  0.5f },{ .U = 0.0f, .V = 0.0f }},
+	{{ .X = -0.5f, .Y = -0.5f, .Z = -0.5f },{ .U = 0.0f, .V = 1.0f }},
+	{{ .X = -0.5f, .Y =  0.5f, .Z = -0.5f },{ .U = 0.0f, .V = 1.0f }},
+	{{ .X =  0.5f, .Y =  0.5f, .Z = -0.5f },{ .U = 1.0f, .V = 1.0f }},
+	{{ .X =  0.5f, .Y =  0.5f, .Z =  0.5f },{ .U = 1.0f, .V = 0.0f }},
+	{{ .X =  0.5f, .Y =  0.5f, .Z =  0.5f },{ .U = 1.0f, .V = 0.0f }},
+	{{ .X = -0.5f, .Y =  0.5f, .Z =  0.5f },{ .U = 0.0f, .V = 0.0f }},
+	{{ .X = -0.5f, .Y =  0.5f, .Z = -0.5f },{ .U = 0.0f, .V = 1.0f }},
 };
 
 static const HMM_Vec3 cube_positions[] = {
 	{ .X =  0.0f, .Y =  0.0f, .Z =   0.0f },
-	{ .X =  2.0f, .Y =  5.0f, .Z = -15.0f },
-	{ .X = -1.5f, .Y = -2.2f, .Z =  -2.5f },
-	{ .X = -3.8f, .Y = -2.0f, .Z = -12.3f },
-	{ .X =  2.4f, .Y = -0.4f, .Z =  -3.5f },
-	{ .X = -1.7f, .Y =  3.0f, .Z =  -7.5f },
-	{ .X =  1.3f, .Y = -2.0f, .Z =  -2.5f },
-	{ .X =  1.5f, .Y =  2.0f, .Z =  -2.5f },
-	{ .X =  1.5f, .Y =  0.2f, .Z =  -1.5f },
-	{ .X = -1.3f, .Y =  1.0f, .Z =  -1.5f },
+	// { .X =  2.0f, .Y =  5.0f, .Z = -15.0f },
+	// { .X = -1.5f, .Y = -2.2f, .Z =  -2.5f },
+	// { .X = -3.8f, .Y = -2.0f, .Z = -12.3f },
+	// { .X =  2.4f, .Y = -0.4f, .Z =  -3.5f },
+	// { .X = -1.7f, .Y =  3.0f, .Z =  -7.5f },
+	// { .X =  1.3f, .Y = -2.0f, .Z =  -2.5f },
+	// { .X =  1.5f, .Y =  2.0f, .Z =  -2.5f },
+	// { .X =  1.5f, .Y =  0.2f, .Z =  -1.5f },
+	// { .X = -1.3f, .Y =  1.0f, .Z =  -1.5f },
 };
 
 typedef struct {
@@ -89,8 +90,10 @@ typedef struct {
 #define CAMERA_UP ((HMM_Vec3){ .X = 0.f, .Y = 1.f, .Z = 0.f })
 
 typedef struct {
-	sg_pipeline pipeline;
-	sg_bindings bindings;
+	sg_pipeline lighting_target_pipeline;
+	sg_pipeline lighting_source_pipeline;
+	sg_bindings lighting_target_bindings;
+	sg_bindings lighting_source_bindings;
 	sg_pass_action pass_action;
 	byte *image_data;
 	Camera camera;
@@ -117,6 +120,7 @@ static void
 state_init(
 	AppState *state
 ) {
+#if 0
 	stbi_set_flip_vertically_on_load(true);
 	int w, h, n_channels;
 	byte *box_data = stbi_load("assets/container.jpg", &w, &h, &n_channels, 4);
@@ -143,15 +147,16 @@ state_init(
 		},
 	});
 	stbi_image_free(face_data);
+#endif
 
 	*state = (AppState){
-		.pipeline = sg_make_pipeline(&(sg_pipeline_desc){
+		.lighting_target_pipeline = sg_make_pipeline(&(sg_pipeline_desc){
 			.shader = sg_make_shader(scene_shader_desc(sg_query_backend())),
 			.layout = {
 				.attrs = {
 					[ATTR_scene_aPos].format = SG_VERTEXFORMAT_FLOAT3,
 					[ATTR_scene_aTexCoord].format = SG_VERTEXFORMAT_FLOAT2,
-				}
+				},
 			},
 			.label = "scene-pipeline",
 			.depth = {
@@ -159,11 +164,28 @@ state_init(
 				.compare = SG_COMPAREFUNC_LESS_EQUAL,
 			}
 		}),
-		.bindings.vertex_buffers[0] = sg_make_buffer(&(sg_buffer_desc){
+		.lighting_source_pipeline = sg_make_pipeline(&(sg_pipeline_desc){
+			.shader = sg_make_shader(light_shader_desc(sg_query_backend())),
+			.layout = {
+				.attrs = {
+					[ATTR_light_aPos].format = SG_VERTEXFORMAT_FLOAT3,
+				},
+				.buffers = {
+					[ATTR_light_aPos].stride = sizeof(Vertex),
+				},
+			},
+			.label = "scene-pipeline",
+			.depth = {
+				.write_enabled = true,
+				.compare = SG_COMPAREFUNC_LESS_EQUAL,
+			}
+		}),
+		.lighting_target_bindings.vertex_buffers[0] = sg_make_buffer(&(sg_buffer_desc){
 			.usage.vertex_buffer = true,
-			.data = SG_RANGE(vertices),
+			.data = SG_RANGE(lighting_target_vertices),
 			.label = "vertex-buffer",
 		}),
+#if 0
 		.bindings.views[VIEW_boxTexture] = sg_make_view(&(sg_view_desc){
 			.texture = {.image = box_img },
 			.label = "box-texture",
@@ -182,10 +204,16 @@ state_init(
 			.mag_filter = SG_FILTER_LINEAR,
 			.label = "face-sampler"
 		}),
+#endif
+		.lighting_source_bindings.vertex_buffers[0] = sg_make_buffer(&(sg_buffer_desc){
+			.usage.vertex_buffer = true,
+			.data = SG_RANGE(lighting_target_vertices),
+			.label = "vertex-buffer",
+		}),
 		.pass_action = (sg_pass_action) {
 			.colors[0] = {
 				.load_action = SG_LOADACTION_CLEAR,
-				.clear_value = { 0.2f, 0.3f, 0.3f, 1.0f },
+				.clear_value = { 0.1f, 0.1f, 0.1f, 1.0f },
 			}
 		},
 		.camera.yaw = -90.f,
@@ -210,19 +238,40 @@ app_frame(
 		.action = state->pass_action,
 		.swapchain = sglue_swapchain()
 	});
-	sg_apply_pipeline(state->pipeline);
-	sg_apply_bindings(&state->bindings);
+
+	sg_apply_pipeline(state->lighting_target_pipeline);
+	sg_apply_bindings(&state->lighting_target_bindings);
 
 	HMM_Vec3 camera_front = cam_direction_from_pitch_yaw(state->camera.pitch, state->camera.yaw);
-	scene_vs_params_t vs_params = {
+	scene_vs_params_t scene_vs_params = {
 		.view       = HMM_LookAt_RH(state->camera.pos, HMM_Add(state->camera.pos, camera_front), CAMERA_UP),
 		.projection = HMM_Perspective_RH_NO(HMM_AngleDeg(state->camera.fov), (f32)WIDTH / (f32)HEIGHT, 0.1f, 100.f),
 	};
-	for (usize i = 0; i < countof(cube_positions); ++i) {
-		vs_params.model = HMM_Mul(HMM_Translate(cube_positions[i]),
-		                          HMM_Rotate_RH(HMM_AngleDeg(20.f * i), HMM_V3(1.f, 0.3f, 0.5f)));
-		sg_apply_uniforms(UB_scene_vs_params, &SG_RANGE(vs_params));
-		sg_draw(0, countof(vertices) / 5, 1);
+	// for (usize i = 0; i < countof(cube_positions); ++i) {
+	usize i = 0;
+	scene_vs_params.model = HMM_Mul(HMM_Translate(cube_positions[i]),
+	                                HMM_Rotate_RH(HMM_AngleDeg(20.f * i), HMM_V3(1.f, 0.3f, 0.5f)));
+	sg_apply_uniforms(UB_scene_vs_params, &SG_RANGE(scene_vs_params));
+	scene_fs_params_t scene_fs_params = {
+		.objectColor = HMM_V3(1.f, 0.5f, 0.31f),
+		.lightColor  = HMM_V3(1.f, 1.f, 1.f),
+	};
+	sg_apply_uniforms(UB_scene_fs_params, &SG_RANGE(scene_fs_params));
+	sg_draw(0, countof(lighting_target_vertices), 1);
+	// }
+
+	{
+		sg_apply_pipeline(state->lighting_source_pipeline);
+		sg_apply_bindings(&state->lighting_target_bindings);
+		HMM_Vec3 light_pos = HMM_V3(1.2f, 1.f, 2.f);
+		light_vs_params_t light_vs_params = {
+			.view = scene_vs_params.view,
+			.projection = scene_vs_params.projection,
+			.model = HMM_Mul(HMM_Translate(light_pos),
+		                   HMM_Scale(HMM_V3(0.2f, 0.2f, 0.2f))),
+		};
+		sg_apply_uniforms(UB_light_vs_params, &SG_RANGE(light_vs_params));
+		sg_draw(0, countof(lighting_target_vertices), 1);
 	}
 
 	sg_end_pass();
