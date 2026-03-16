@@ -161,34 +161,33 @@ static void
 state_init(
 	AppState *state
 ) {
-#if 0
 	stbi_set_flip_vertically_on_load(true);
 	int w, h, n_channels;
-	byte *box_data = stbi_load("assets/container.jpg", &w, &h, &n_channels, 4);
-	assert(box_data);
-	sg_image box_img = sg_make_image(&(sg_image_desc){
+	byte *diffuse_data = stbi_load("assets/container2.png", &w, &h, &n_channels, 4);
+	assert(diffuse_data);
+	sg_image diffuse_img = sg_make_image(&(sg_image_desc){
 		.width = w,
 		.height = h,
 		.pixel_format = SG_PIXELFORMAT_RGBA8,
 		.data.mip_levels[0] = {
-			.ptr = box_data,
+			.ptr = diffuse_data,
 			.size = (size_t)(w * h * 4),
 		},
 	});
-	stbi_image_free(box_data);
-	byte *face_data = stbi_load("assets/awesomeface.png", &w, &h, &n_channels, 4);
-	assert(face_data);
-	sg_image face_img = sg_make_image(&(sg_image_desc){
+	stbi_image_free(diffuse_data);
+
+	byte *specular_data = stbi_load("assets/container2_specular.png", &w, &h, &n_channels, 4);
+	assert(specular_data);
+	sg_image specular_img = sg_make_image(&(sg_image_desc){
 		.width = w,
 		.height = h,
 		.pixel_format = SG_PIXELFORMAT_RGBA8,
 		.data.mip_levels[0] = {
-			.ptr = face_data,
+			.ptr = specular_data,
 			.size = (size_t)(w * h * 4),
 		},
 	});
-	stbi_image_free(face_data);
-#endif
+	stbi_image_free(specular_data);
 
 	*state = (AppState){
 		.lighting_target_pipeline = sg_make_pipeline(&(sg_pipeline_desc){
@@ -227,26 +226,19 @@ state_init(
 			.data = SG_RANGE(lighting_target_vertices),
 			.label = "vertex-buffer",
 		}),
-#if 0
-		.bindings.views[VIEW_boxTexture] = sg_make_view(&(sg_view_desc){
-			.texture = {.image = box_img },
-			.label = "box-texture",
+		.lighting_target_bindings.views[VIEW_diffuseTexture] = sg_make_view(&(sg_view_desc){
+			.texture = {.image = diffuse_img },
+			.label = "diffuse-texture",
 		}),
-		.bindings.samplers[SMP_boxSampler] = sg_make_sampler(&(sg_sampler_desc){
+		.lighting_target_bindings.views[VIEW_specularTexture] = sg_make_view(&(sg_view_desc){
+			.texture = {.image = specular_img },
+			.label = "specular-texture",
+		}),
+		.lighting_target_bindings.samplers[SMP_boxSampler] = sg_make_sampler(&(sg_sampler_desc){
 			.min_filter = SG_FILTER_LINEAR,
 			.mag_filter = SG_FILTER_LINEAR,
 			.label = "box-sampler"
 		}),
-		.bindings.views[VIEW_faceTexture] = sg_make_view(&(sg_view_desc){
-			.texture = {.image = face_img },
-			.label = "face-texture",
-		}),
-		.bindings.samplers[SMP_faceSampler] = sg_make_sampler(&(sg_sampler_desc){
-			.min_filter = SG_FILTER_LINEAR,
-			.mag_filter = SG_FILTER_LINEAR,
-			.label = "face-sampler"
-		}),
-#endif
 		.lighting_source_bindings.vertex_buffers[0] = sg_make_buffer(&(sg_buffer_desc){
 			.usage.vertex_buffer = true,
 			.data = SG_RANGE(lighting_target_vertices),
@@ -291,15 +283,15 @@ app_frame(
 		.projection = HMM_Perspective_RH_NO(HMM_AngleDeg(state->camera.fov), (f32)WIDTH / (f32)HEIGHT, 0.1f, 100.f),
 	};
 
+#if 0
 	HMM_Vec3 light_color = HMM_V3(sin(stm_sec(current_frame) * 2.0f),
 	                              sin(stm_sec(current_frame) * 0.7f),
 	                              sin(stm_sec(current_frame) * 1.3f));
+#endif
+	HMM_Vec3 light_color = HMM_V3(1.f, 1.f, 1.f);
 
 	{
 		scene_material_t scene_material = {
-			.mat_ambient = HMM_V3(1.f, 0.5f, 0.31f),
-			.mat_diffuse = HMM_V3(1.f, 0.5f, 0.31f),
-			.mat_specular = HMM_V3(0.5f, 0.5f, 0.5f),
 			.mat_shininess = 32.f,
 		};
 		sg_apply_uniforms(UB_scene_material, &SG_RANGE(scene_material));

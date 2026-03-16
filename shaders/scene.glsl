@@ -30,17 +30,14 @@ void main(
 @end
 
 @fs scene_fs
-layout(binding=0) uniform texture2D boxTexture;
-layout(binding=0) uniform sampler boxSampler;
-layout(binding=1) uniform texture2D faceTexture;
-layout(binding=1) uniform sampler faceSampler;
+layout(binding=0) uniform texture2D diffuseTexture;
+layout(binding=1) uniform texture2D specularTexture;
+layout(binding=0) uniform sampler boxSampler; // there only needs to be one of these for many
+                                              // material texture lookups
 layout(binding=1) uniform scene_fs_params {
 	vec3 viewPos;
 };
 layout(binding=2) uniform scene_material {
-	vec3  mat_ambient;
-	vec3  mat_diffuse;
-	vec3  mat_specular;
 	float mat_shininess;
 };
 layout(binding=3) uniform scene_light {
@@ -59,20 +56,24 @@ out vec4 FragColor;
 void main(
 	void
 ) {
+	// sample texture for diffuse/ambient
+	vec3 sampled_diffuse  = vec3(texture(sampler2D(diffuseTexture , boxSampler), TexCoord));
+	vec3 sampled_specular = vec3(texture(sampler2D(specularTexture, boxSampler), TexCoord));
+
 	// ambient
-	vec3 ambient = light_ambient * mat_ambient;
+	vec3 ambient = light_ambient * sampled_diffuse;
 
 	// diffuse
 	vec3 norm = normalize(Normal);
 	vec3 lightDir = normalize(light_position - FragPos);
 	float diff = max(dot(norm, lightDir), 0.);
-	vec3 diffuse = light_diffuse * (diff * mat_diffuse);
+	vec3 diffuse = light_diffuse * diff * sampled_diffuse;
 
 	// specular
 	vec3 viewDir = normalize(viewPos - FragPos);
 	vec3 reflectDir = reflect(-lightDir, norm);
 	float spec = pow(max(dot(viewDir, reflectDir), 0.), mat_shininess);
-	vec3 specular = light_specular * (spec * mat_specular);
+	vec3 specular = light_specular * spec * sampled_specular;
 
 	vec3 result = ambient + diffuse + specular;
 	FragColor = vec4(result, 1.);
