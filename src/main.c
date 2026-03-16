@@ -7,6 +7,7 @@
 #include "sokol_time.h"
 
 #include "handmade_math.h"
+#include <stdbool.h>
 #define STB_IMAGE_IMPLEMENTATION
 #include "stb_image.h"
 
@@ -19,72 +20,98 @@ typedef unsigned char byte;
 
 #define WIDTH 800
 #define HEIGHT 600
+#define FOV_MAX 45.f
 
 static const f32 vertices[] = {
-    -0.5f, -0.5f, -0.5f,  0.0f, 0.0f,
-     0.5f, -0.5f, -0.5f,  1.0f, 0.0f,
-     0.5f,  0.5f, -0.5f,  1.0f, 1.0f,
-     0.5f,  0.5f, -0.5f,  1.0f, 1.0f,
-    -0.5f,  0.5f, -0.5f,  0.0f, 1.0f,
-    -0.5f, -0.5f, -0.5f,  0.0f, 0.0f,
+	-0.5f, -0.5f, -0.5f,  0.0f, 0.0f,
+	 0.5f, -0.5f, -0.5f,  1.0f, 0.0f,
+	 0.5f,  0.5f, -0.5f,  1.0f, 1.0f,
+	 0.5f,  0.5f, -0.5f,  1.0f, 1.0f,
+	-0.5f,  0.5f, -0.5f,  0.0f, 1.0f,
+	-0.5f, -0.5f, -0.5f,  0.0f, 0.0f,
 
-    -0.5f, -0.5f,  0.5f,  0.0f, 0.0f,
-     0.5f, -0.5f,  0.5f,  1.0f, 0.0f,
-     0.5f,  0.5f,  0.5f,  1.0f, 1.0f,
-     0.5f,  0.5f,  0.5f,  1.0f, 1.0f,
-    -0.5f,  0.5f,  0.5f,  0.0f, 1.0f,
-    -0.5f, -0.5f,  0.5f,  0.0f, 0.0f,
+	-0.5f, -0.5f,  0.5f,  0.0f, 0.0f,
+	 0.5f, -0.5f,  0.5f,  1.0f, 0.0f,
+	 0.5f,  0.5f,  0.5f,  1.0f, 1.0f,
+	 0.5f,  0.5f,  0.5f,  1.0f, 1.0f,
+	-0.5f,  0.5f,  0.5f,  0.0f, 1.0f,
+	-0.5f, -0.5f,  0.5f,  0.0f, 0.0f,
 
-    -0.5f,  0.5f,  0.5f,  1.0f, 0.0f,
-    -0.5f,  0.5f, -0.5f,  1.0f, 1.0f,
-    -0.5f, -0.5f, -0.5f,  0.0f, 1.0f,
-    -0.5f, -0.5f, -0.5f,  0.0f, 1.0f,
-    -0.5f, -0.5f,  0.5f,  0.0f, 0.0f,
-    -0.5f,  0.5f,  0.5f,  1.0f, 0.0f,
+	-0.5f,  0.5f,  0.5f,  1.0f, 0.0f,
+	-0.5f,  0.5f, -0.5f,  1.0f, 1.0f,
+	-0.5f, -0.5f, -0.5f,  0.0f, 1.0f,
+	-0.5f, -0.5f, -0.5f,  0.0f, 1.0f,
+	-0.5f, -0.5f,  0.5f,  0.0f, 0.0f,
+	-0.5f,  0.5f,  0.5f,  1.0f, 0.0f,
 
-     0.5f,  0.5f,  0.5f,  1.0f, 0.0f,
-     0.5f,  0.5f, -0.5f,  1.0f, 1.0f,
-     0.5f, -0.5f, -0.5f,  0.0f, 1.0f,
-     0.5f, -0.5f, -0.5f,  0.0f, 1.0f,
-     0.5f, -0.5f,  0.5f,  0.0f, 0.0f,
-     0.5f,  0.5f,  0.5f,  1.0f, 0.0f,
+	 0.5f,  0.5f,  0.5f,  1.0f, 0.0f,
+	 0.5f,  0.5f, -0.5f,  1.0f, 1.0f,
+	 0.5f, -0.5f, -0.5f,  0.0f, 1.0f,
+	 0.5f, -0.5f, -0.5f,  0.0f, 1.0f,
+	 0.5f, -0.5f,  0.5f,  0.0f, 0.0f,
+	 0.5f,  0.5f,  0.5f,  1.0f, 0.0f,
 
-    -0.5f, -0.5f, -0.5f,  0.0f, 1.0f,
-     0.5f, -0.5f, -0.5f,  1.0f, 1.0f,
-     0.5f, -0.5f,  0.5f,  1.0f, 0.0f,
-     0.5f, -0.5f,  0.5f,  1.0f, 0.0f,
-    -0.5f, -0.5f,  0.5f,  0.0f, 0.0f,
-    -0.5f, -0.5f, -0.5f,  0.0f, 1.0f,
+	-0.5f, -0.5f, -0.5f,  0.0f, 1.0f,
+	 0.5f, -0.5f, -0.5f,  1.0f, 1.0f,
+	 0.5f, -0.5f,  0.5f,  1.0f, 0.0f,
+	 0.5f, -0.5f,  0.5f,  1.0f, 0.0f,
+	-0.5f, -0.5f,  0.5f,  0.0f, 0.0f,
+	-0.5f, -0.5f, -0.5f,  0.0f, 1.0f,
 
-    -0.5f,  0.5f, -0.5f,  0.0f, 1.0f,
-     0.5f,  0.5f, -0.5f,  1.0f, 1.0f,
-     0.5f,  0.5f,  0.5f,  1.0f, 0.0f,
-     0.5f,  0.5f,  0.5f,  1.0f, 0.0f,
-    -0.5f,  0.5f,  0.5f,  0.0f, 0.0f,
-    -0.5f,  0.5f, -0.5f,  0.0f, 1.0f
+	-0.5f,  0.5f, -0.5f,  0.0f, 1.0f,
+	 0.5f,  0.5f, -0.5f,  1.0f, 1.0f,
+	 0.5f,  0.5f,  0.5f,  1.0f, 0.0f,
+	 0.5f,  0.5f,  0.5f,  1.0f, 0.0f,
+	-0.5f,  0.5f,  0.5f,  0.0f, 0.0f,
+	-0.5f,  0.5f, -0.5f,  0.0f, 1.0f
 };
 
 static const HMM_Vec3 cube_positions[] = {
-    { .X =  0.0f, .Y =  0.0f, .Z =   0.0f },
-    { .X =  2.0f, .Y =  5.0f, .Z = -15.0f },
-    { .X = -1.5f, .Y = -2.2f, .Z =  -2.5f },
-    { .X = -3.8f, .Y = -2.0f, .Z = -12.3f },
-    { .X =  2.4f, .Y = -0.4f, .Z =  -3.5f },
-    { .X = -1.7f, .Y =  3.0f, .Z =  -7.5f },
-    { .X =  1.3f, .Y = -2.0f, .Z =  -2.5f },
-    { .X =  1.5f, .Y =  2.0f, .Z =  -2.5f },
-    { .X =  1.5f, .Y =  0.2f, .Z =  -1.5f },
-    { .X = -1.3f, .Y =  1.0f, .Z =  -1.5f },
-  };
+	{ .X =  0.0f, .Y =  0.0f, .Z =   0.0f },
+	{ .X =  2.0f, .Y =  5.0f, .Z = -15.0f },
+	{ .X = -1.5f, .Y = -2.2f, .Z =  -2.5f },
+	{ .X = -3.8f, .Y = -2.0f, .Z = -12.3f },
+	{ .X =  2.4f, .Y = -0.4f, .Z =  -3.5f },
+	{ .X = -1.7f, .Y =  3.0f, .Z =  -7.5f },
+	{ .X =  1.3f, .Y = -2.0f, .Z =  -2.5f },
+	{ .X =  1.5f, .Y =  2.0f, .Z =  -2.5f },
+	{ .X =  1.5f, .Y =  0.2f, .Z =  -1.5f },
+	{ .X = -1.3f, .Y =  1.0f, .Z =  -1.5f },
+};
+
+typedef struct {
+	f32 pitch;
+	f32 yaw;
+	f32 fov;
+	HMM_Vec3 pos;
+} Camera;
+
+#define CAMERA_UP ((HMM_Vec3){ .X = 0.f, .Y = 1.f, .Z = 0.f })
 
 typedef struct {
 	sg_pipeline pipeline;
 	sg_bindings bindings;
 	sg_pass_action pass_action;
 	byte *image_data;
+	Camera camera;
+	f32 delta_time;
+	bool window_focused;
 } AppState;
 
 #define countof(x) (sizeof(x) / sizeof((x)[0]))
+
+static HMM_Vec3
+cam_direction_from_pitch_yaw(
+	float pitch,
+	float yaw
+) {
+	HMM_Vec3 dir = {
+		.X = cosf(HMM_AngleDeg(yaw)) * cosf(HMM_AngleDeg(pitch)),
+		.Y = sinf(HMM_AngleDeg(pitch)),
+		.Z = sinf(HMM_AngleDeg(yaw)) * cosf(HMM_AngleDeg(pitch)),
+	};
+	return HMM_Norm(dir);
+}
 
 static void
 state_init(
@@ -161,6 +188,10 @@ state_init(
 				.clear_value = { 0.2f, 0.3f, 0.3f, 1.0f },
 			}
 		},
+		.camera.yaw = -90.f,
+		.camera.pos = HMM_V3(0.f, 0.f,  3.f),
+		.camera.fov = FOV_MAX,
+		.window_focused = true,
 	};
 }
 
@@ -169,6 +200,12 @@ app_frame(
 	void *state_
 ) {
 	AppState *state = state_;
+
+	uint64_t current_frame = stm_now();
+	static uint64_t last_frame = 0;
+	state->delta_time = stm_sec(stm_diff(current_frame, last_frame));
+	last_frame = current_frame;
+
 	sg_begin_pass(&(sg_pass){
 		.action = state->pass_action,
 		.swapchain = sglue_swapchain()
@@ -176,9 +213,10 @@ app_frame(
 	sg_apply_pipeline(state->pipeline);
 	sg_apply_bindings(&state->bindings);
 
+	HMM_Vec3 camera_front = cam_direction_from_pitch_yaw(state->camera.pitch, state->camera.yaw);
 	scene_vs_params_t vs_params = {
-		.view       = HMM_Translate(HMM_V3(0.f, 0.f, -3.f)),
-		.projection = HMM_Perspective_RH_NO(HMM_AngleDeg(45.f), (f32)WIDTH / (f32)HEIGHT, 0.1f, 100.f),
+		.view       = HMM_LookAt_RH(state->camera.pos, HMM_Add(state->camera.pos, camera_front), CAMERA_UP),
+		.projection = HMM_Perspective_RH_NO(HMM_AngleDeg(state->camera.fov), (f32)WIDTH / (f32)HEIGHT, 0.1f, 100.f),
 	};
 	for (usize i = 0; i < countof(cube_positions); ++i) {
 		vs_params.model = HMM_Mul(HMM_Translate(cube_positions[i]),
@@ -193,12 +231,53 @@ app_frame(
 
 static void
 app_handle_event(
-	const sapp_event *event
+	const sapp_event *event,
+	void *state_
 ) {
+	AppState *state = state_;
+	if (!state->window_focused) {
+		if (SAPP_EVENTTYPE_FOCUSED == event->type) {
+			state->window_focused = true;
+		}
+		return;
+	}
+	if (SAPP_EVENTTYPE_UNFOCUSED == event->type) {
+		state->window_focused = false;
+	}
 	if (   SAPP_EVENTTYPE_CHAR == event->type
 	    && (   'q' == event->char_code
 	        || 'Q' == event->char_code)) {
 		sapp_quit();
+	}
+	f32 camera_speed = 10.f * state->delta_time;
+	if (SAPP_EVENTTYPE_CHAR == event->type) {
+		HMM_Vec3 camera_front = cam_direction_from_pitch_yaw(state->camera.pitch, state->camera.yaw);
+		if ('w' == event->char_code) {
+			HMM_Vec3 delta = HMM_Mul(camera_front, camera_speed);
+			state->camera.pos = HMM_Add(state->camera.pos, delta);
+		}
+		if ('s' == event->char_code) {
+			HMM_Vec3 delta = HMM_Mul(camera_front, camera_speed);
+			state->camera.pos = HMM_Sub(state->camera.pos, delta);
+		}
+		if ('a' == event->char_code) {
+			HMM_Vec3 delta = HMM_Mul(HMM_Norm(HMM_Cross(camera_front, CAMERA_UP)), camera_speed);
+			state->camera.pos = HMM_Sub(state->camera.pos, delta);
+		}
+		if ('d' == event->char_code) {
+			HMM_Vec3 delta = HMM_Mul(HMM_Norm(HMM_Cross(camera_front, CAMERA_UP)), camera_speed);
+			state->camera.pos = HMM_Add(state->camera.pos, delta);
+		}
+	}
+	if (SAPP_EVENTTYPE_MOUSE_MOVE == event->type) {
+		f32 sensitivity = 0.1f;
+		f32 d_yaw   =  event->mouse_dx * sensitivity;
+		f32 d_pitch = -event->mouse_dy * sensitivity; // positive `mouse_dy` is screen downward
+		state->camera.yaw += d_yaw;
+		state->camera.pitch = HMM_Clamp(-89.f, state->camera.pitch + d_pitch, 89.f);
+	}
+	if (SAPP_EVENTTYPE_MOUSE_SCROLL == event->type) {
+		state->camera.fov = HMM_Clamp(1.f, state->camera.fov - event->scroll_y, FOV_MAX);
 	}
 }
 
@@ -212,6 +291,7 @@ app_init(
 	});
 	stm_setup();
 	state_init((AppState *)state_);
+	sapp_lock_mouse(true);
 }
 
 static void
@@ -234,7 +314,7 @@ sapp_desc sokol_main(
 		.frame_userdata_cb = app_frame,
 		.cleanup_userdata_cb = app_cleanup,
 		.user_data = state,
-		.event_cb = app_handle_event,
+		.event_userdata_cb = app_handle_event,
 		.width = WIDTH,
 		.height = HEIGHT,
 		.window_title = "Triangle",
