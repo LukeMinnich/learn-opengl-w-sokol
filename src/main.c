@@ -26,58 +26,99 @@ typedef unsigned char byte;
 typedef struct {
 	HMM_Vec3 pos;
 	HMM_Vec2 tex;
+	HMM_Vec3 norm;
 } Vertex;
+float vertices[] = {
+    -0.5f, -0.5f, -0.5f,  0.0f,  0.0f, -1.0f,
+     0.5f, -0.5f, -0.5f,  0.0f,  0.0f, -1.0f,
+     0.5f,  0.5f, -0.5f,  0.0f,  0.0f, -1.0f,
+     0.5f,  0.5f, -0.5f,  0.0f,  0.0f, -1.0f,
+    -0.5f,  0.5f, -0.5f,  0.0f,  0.0f, -1.0f,
+    -0.5f, -0.5f, -0.5f,  0.0f,  0.0f, -1.0f,
+    -0.5f, -0.5f,  0.5f,  0.0f,  0.0f,  1.0f,
+     0.5f, -0.5f,  0.5f,  0.0f,  0.0f,  1.0f,
+     0.5f,  0.5f,  0.5f,  0.0f,  0.0f,  1.0f,
+     0.5f,  0.5f,  0.5f,  0.0f,  0.0f,  1.0f,
+    -0.5f,  0.5f,  0.5f,  0.0f,  0.0f,  1.0f,
+    -0.5f, -0.5f,  0.5f,  0.0f,  0.0f,  1.0f,
+    -0.5f,  0.5f,  0.5f, -1.0f,  0.0f,  0.0f,
+    -0.5f,  0.5f, -0.5f, -1.0f,  0.0f,  0.0f,
+    -0.5f, -0.5f, -0.5f, -1.0f,  0.0f,  0.0f,
+    -0.5f, -0.5f, -0.5f, -1.0f,  0.0f,  0.0f,
+    -0.5f, -0.5f,  0.5f, -1.0f,  0.0f,  0.0f,
+    -0.5f,  0.5f,  0.5f, -1.0f,  0.0f,  0.0f,
+     0.5f,  0.5f,  0.5f,  1.0f,  0.0f,  0.0f,
+     0.5f,  0.5f, -0.5f,  1.0f,  0.0f,  0.0f,
+     0.5f, -0.5f, -0.5f,  1.0f,  0.0f,  0.0f,
+     0.5f, -0.5f, -0.5f,  1.0f,  0.0f,  0.0f,
+     0.5f, -0.5f,  0.5f,  1.0f,  0.0f,  0.0f,
+     0.5f,  0.5f,  0.5f,  1.0f,  0.0f,  0.0f,
+    -0.5f, -0.5f, -0.5f,  0.0f, -1.0f,  0.0f,
+     0.5f, -0.5f, -0.5f,  0.0f, -1.0f,  0.0f,
+     0.5f, -0.5f,  0.5f,  0.0f, -1.0f,  0.0f,
+     0.5f, -0.5f,  0.5f,  0.0f, -1.0f,  0.0f,
+    -0.5f, -0.5f,  0.5f,  0.0f, -1.0f,  0.0f,
+    -0.5f, -0.5f, -0.5f,  0.0f, -1.0f,  0.0f,
+    -0.5f,  0.5f, -0.5f,  0.0f,  1.0f,  0.0f,
+     0.5f,  0.5f, -0.5f,  0.0f,  1.0f,  0.0f,
+     0.5f,  0.5f,  0.5f,  0.0f,  1.0f,  0.0f,
+     0.5f,  0.5f,  0.5f,  0.0f,  1.0f,  0.0f,
+    -0.5f,  0.5f,  0.5f,  0.0f,  1.0f,  0.0f,
+    -0.5f,  0.5f, -0.5f,  0.0f,  1.0f,  0.0f,
+};
 
 static const Vertex lighting_target_vertices[] = {
-	{{ .X = -0.5f, .Y = -0.5f, .Z = -0.5f },{ .U = 0.0f, .V = 0.0f }},
-	{{ .X =  0.5f, .Y = -0.5f, .Z = -0.5f },{ .U = 1.0f, .V = 0.0f }},
-	{{ .X =  0.5f, .Y =  0.5f, .Z = -0.5f },{ .U = 1.0f, .V = 1.0f }},
-	{{ .X =  0.5f, .Y =  0.5f, .Z = -0.5f },{ .U = 1.0f, .V = 1.0f }},
-	{{ .X = -0.5f, .Y =  0.5f, .Z = -0.5f },{ .U = 0.0f, .V = 1.0f }},
-	{{ .X = -0.5f, .Y = -0.5f, .Z = -0.5f },{ .U = 0.0f, .V = 0.0f }},
-	{{ .X = -0.5f, .Y = -0.5f, .Z =  0.5f },{ .U = 0.0f, .V = 0.0f }},
-	{{ .X =  0.5f, .Y = -0.5f, .Z =  0.5f },{ .U = 1.0f, .V = 0.0f }},
-	{{ .X =  0.5f, .Y =  0.5f, .Z =  0.5f },{ .U = 1.0f, .V = 1.0f }},
-	{{ .X =  0.5f, .Y =  0.5f, .Z =  0.5f },{ .U = 1.0f, .V = 1.0f }},
-	{{ .X = -0.5f, .Y =  0.5f, .Z =  0.5f },{ .U = 0.0f, .V = 1.0f }},
-	{{ .X = -0.5f, .Y = -0.5f, .Z =  0.5f },{ .U = 0.0f, .V = 0.0f }},
-	{{ .X = -0.5f, .Y =  0.5f, .Z =  0.5f },{ .U = 1.0f, .V = 0.0f }},
-	{{ .X = -0.5f, .Y =  0.5f, .Z = -0.5f },{ .U = 1.0f, .V = 1.0f }},
-	{{ .X = -0.5f, .Y = -0.5f, .Z = -0.5f },{ .U = 0.0f, .V = 1.0f }},
-	{{ .X = -0.5f, .Y = -0.5f, .Z = -0.5f },{ .U = 0.0f, .V = 1.0f }},
-	{{ .X = -0.5f, .Y = -0.5f, .Z =  0.5f },{ .U = 0.0f, .V = 0.0f }},
-	{{ .X = -0.5f, .Y =  0.5f, .Z =  0.5f },{ .U = 1.0f, .V = 0.0f }},
-	{{ .X =  0.5f, .Y =  0.5f, .Z =  0.5f },{ .U = 1.0f, .V = 0.0f }},
-	{{ .X =  0.5f, .Y =  0.5f, .Z = -0.5f },{ .U = 1.0f, .V = 1.0f }},
-	{{ .X =  0.5f, .Y = -0.5f, .Z = -0.5f },{ .U = 0.0f, .V = 1.0f }},
-	{{ .X =  0.5f, .Y = -0.5f, .Z = -0.5f },{ .U = 0.0f, .V = 1.0f }},
-	{{ .X =  0.5f, .Y = -0.5f, .Z =  0.5f },{ .U = 0.0f, .V = 0.0f }},
-	{{ .X =  0.5f, .Y =  0.5f, .Z =  0.5f },{ .U = 1.0f, .V = 0.0f }},
-	{{ .X = -0.5f, .Y = -0.5f, .Z = -0.5f },{ .U = 0.0f, .V = 1.0f }},
-	{{ .X =  0.5f, .Y = -0.5f, .Z = -0.5f },{ .U = 1.0f, .V = 1.0f }},
-	{{ .X =  0.5f, .Y = -0.5f, .Z =  0.5f },{ .U = 1.0f, .V = 0.0f }},
-	{{ .X =  0.5f, .Y = -0.5f, .Z =  0.5f },{ .U = 1.0f, .V = 0.0f }},
-	{{ .X = -0.5f, .Y = -0.5f, .Z =  0.5f },{ .U = 0.0f, .V = 0.0f }},
-	{{ .X = -0.5f, .Y = -0.5f, .Z = -0.5f },{ .U = 0.0f, .V = 1.0f }},
-	{{ .X = -0.5f, .Y =  0.5f, .Z = -0.5f },{ .U = 0.0f, .V = 1.0f }},
-	{{ .X =  0.5f, .Y =  0.5f, .Z = -0.5f },{ .U = 1.0f, .V = 1.0f }},
-	{{ .X =  0.5f, .Y =  0.5f, .Z =  0.5f },{ .U = 1.0f, .V = 0.0f }},
-	{{ .X =  0.5f, .Y =  0.5f, .Z =  0.5f },{ .U = 1.0f, .V = 0.0f }},
-	{{ .X = -0.5f, .Y =  0.5f, .Z =  0.5f },{ .U = 0.0f, .V = 0.0f }},
-	{{ .X = -0.5f, .Y =  0.5f, .Z = -0.5f },{ .U = 0.0f, .V = 1.0f }},
+	{{ .X = -0.5f, .Y = -0.5f, .Z = -0.5f },{ .U = 0.0f, .V = 0.0f },{.X =  0.0f, .Y =  0.0f, .Z = -1.0f}},
+	{{ .X =  0.5f, .Y = -0.5f, .Z = -0.5f },{ .U = 1.0f, .V = 0.0f },{.X =  0.0f, .Y =  0.0f, .Z = -1.0f}},
+	{{ .X =  0.5f, .Y =  0.5f, .Z = -0.5f },{ .U = 1.0f, .V = 1.0f },{.X =  0.0f, .Y =  0.0f, .Z = -1.0f}},
+	{{ .X =  0.5f, .Y =  0.5f, .Z = -0.5f },{ .U = 1.0f, .V = 1.0f },{.X =  0.0f, .Y =  0.0f, .Z = -1.0f}},
+	{{ .X = -0.5f, .Y =  0.5f, .Z = -0.5f },{ .U = 0.0f, .V = 1.0f },{.X =  0.0f, .Y =  0.0f, .Z = -1.0f}},
+	{{ .X = -0.5f, .Y = -0.5f, .Z = -0.5f },{ .U = 0.0f, .V = 0.0f },{.X =  0.0f, .Y =  0.0f, .Z = -1.0f}},
+	{{ .X = -0.5f, .Y = -0.5f, .Z =  0.5f },{ .U = 0.0f, .V = 0.0f },{.X =  0.0f, .Y =  0.0f, .Z =  1.0f}},
+	{{ .X =  0.5f, .Y = -0.5f, .Z =  0.5f },{ .U = 1.0f, .V = 0.0f },{.X =  0.0f, .Y =  0.0f, .Z =  1.0f}},
+	{{ .X =  0.5f, .Y =  0.5f, .Z =  0.5f },{ .U = 1.0f, .V = 1.0f },{.X =  0.0f, .Y =  0.0f, .Z =  1.0f}},
+	{{ .X =  0.5f, .Y =  0.5f, .Z =  0.5f },{ .U = 1.0f, .V = 1.0f },{.X =  0.0f, .Y =  0.0f, .Z =  1.0f}},
+	{{ .X = -0.5f, .Y =  0.5f, .Z =  0.5f },{ .U = 0.0f, .V = 1.0f },{.X =  0.0f, .Y =  0.0f, .Z =  1.0f}},
+	{{ .X = -0.5f, .Y = -0.5f, .Z =  0.5f },{ .U = 0.0f, .V = 0.0f },{.X =  0.0f, .Y =  0.0f, .Z =  1.0f}},
+	{{ .X = -0.5f, .Y =  0.5f, .Z =  0.5f },{ .U = 1.0f, .V = 0.0f },{.X = -1.0f, .Y =  0.0f, .Z =  0.0f}},
+	{{ .X = -0.5f, .Y =  0.5f, .Z = -0.5f },{ .U = 1.0f, .V = 1.0f },{.X = -1.0f, .Y =  0.0f, .Z =  0.0f}},
+	{{ .X = -0.5f, .Y = -0.5f, .Z = -0.5f },{ .U = 0.0f, .V = 1.0f },{.X = -1.0f, .Y =  0.0f, .Z =  0.0f}},
+	{{ .X = -0.5f, .Y = -0.5f, .Z = -0.5f },{ .U = 0.0f, .V = 1.0f },{.X = -1.0f, .Y =  0.0f, .Z =  0.0f}},
+	{{ .X = -0.5f, .Y = -0.5f, .Z =  0.5f },{ .U = 0.0f, .V = 0.0f },{.X = -1.0f, .Y =  0.0f, .Z =  0.0f}},
+	{{ .X = -0.5f, .Y =  0.5f, .Z =  0.5f },{ .U = 1.0f, .V = 0.0f },{.X = -1.0f, .Y =  0.0f, .Z =  0.0f}},
+	{{ .X =  0.5f, .Y =  0.5f, .Z =  0.5f },{ .U = 1.0f, .V = 0.0f },{.X =  1.0f, .Y =  0.0f, .Z =  0.0f}},
+	{{ .X =  0.5f, .Y =  0.5f, .Z = -0.5f },{ .U = 1.0f, .V = 1.0f },{.X =  1.0f, .Y =  0.0f, .Z =  0.0f}},
+	{{ .X =  0.5f, .Y = -0.5f, .Z = -0.5f },{ .U = 0.0f, .V = 1.0f },{.X =  1.0f, .Y =  0.0f, .Z =  0.0f}},
+	{{ .X =  0.5f, .Y = -0.5f, .Z = -0.5f },{ .U = 0.0f, .V = 1.0f },{.X =  1.0f, .Y =  0.0f, .Z =  0.0f}},
+	{{ .X =  0.5f, .Y = -0.5f, .Z =  0.5f },{ .U = 0.0f, .V = 0.0f },{.X =  1.0f, .Y =  0.0f, .Z =  0.0f}},
+	{{ .X =  0.5f, .Y =  0.5f, .Z =  0.5f },{ .U = 1.0f, .V = 0.0f },{.X =  1.0f, .Y =  0.0f, .Z =  0.0f}},
+	{{ .X = -0.5f, .Y = -0.5f, .Z = -0.5f },{ .U = 0.0f, .V = 1.0f },{.X =  0.0f, .Y = -1.0f, .Z =  0.0f}},
+	{{ .X =  0.5f, .Y = -0.5f, .Z = -0.5f },{ .U = 1.0f, .V = 1.0f },{.X =  0.0f, .Y = -1.0f, .Z =  0.0f}},
+	{{ .X =  0.5f, .Y = -0.5f, .Z =  0.5f },{ .U = 1.0f, .V = 0.0f },{.X =  0.0f, .Y = -1.0f, .Z =  0.0f}},
+	{{ .X =  0.5f, .Y = -0.5f, .Z =  0.5f },{ .U = 1.0f, .V = 0.0f },{.X =  0.0f, .Y = -1.0f, .Z =  0.0f}},
+	{{ .X = -0.5f, .Y = -0.5f, .Z =  0.5f },{ .U = 0.0f, .V = 0.0f },{.X =  0.0f, .Y = -1.0f, .Z =  0.0f}},
+	{{ .X = -0.5f, .Y = -0.5f, .Z = -0.5f },{ .U = 0.0f, .V = 1.0f },{.X =  0.0f, .Y = -1.0f, .Z =  0.0f}},
+	{{ .X = -0.5f, .Y =  0.5f, .Z = -0.5f },{ .U = 0.0f, .V = 1.0f },{.X =  0.0f, .Y =  1.0f, .Z =  0.0f}},
+	{{ .X =  0.5f, .Y =  0.5f, .Z = -0.5f },{ .U = 1.0f, .V = 1.0f },{.X =  0.0f, .Y =  1.0f, .Z =  0.0f}},
+	{{ .X =  0.5f, .Y =  0.5f, .Z =  0.5f },{ .U = 1.0f, .V = 0.0f },{.X =  0.0f, .Y =  1.0f, .Z =  0.0f}},
+	{{ .X =  0.5f, .Y =  0.5f, .Z =  0.5f },{ .U = 1.0f, .V = 0.0f },{.X =  0.0f, .Y =  1.0f, .Z =  0.0f}},
+	{{ .X = -0.5f, .Y =  0.5f, .Z =  0.5f },{ .U = 0.0f, .V = 0.0f },{.X =  0.0f, .Y =  1.0f, .Z =  0.0f}},
+	{{ .X = -0.5f, .Y =  0.5f, .Z = -0.5f },{ .U = 0.0f, .V = 1.0f },{.X =  0.0f, .Y =  1.0f, .Z =  0.0f}},
 };
 
 static const HMM_Vec3 cube_positions[] = {
 	{ .X =  0.0f, .Y =  0.0f, .Z =   0.0f },
-	// { .X =  2.0f, .Y =  5.0f, .Z = -15.0f },
-	// { .X = -1.5f, .Y = -2.2f, .Z =  -2.5f },
-	// { .X = -3.8f, .Y = -2.0f, .Z = -12.3f },
-	// { .X =  2.4f, .Y = -0.4f, .Z =  -3.5f },
-	// { .X = -1.7f, .Y =  3.0f, .Z =  -7.5f },
-	// { .X =  1.3f, .Y = -2.0f, .Z =  -2.5f },
-	// { .X =  1.5f, .Y =  2.0f, .Z =  -2.5f },
-	// { .X =  1.5f, .Y =  0.2f, .Z =  -1.5f },
-	// { .X = -1.3f, .Y =  1.0f, .Z =  -1.5f },
+#if 0
+	{ .X =  2.0f, .Y =  5.0f, .Z = -15.0f },
+	{ .X = -1.5f, .Y = -2.2f, .Z =  -2.5f },
+	{ .X = -3.8f, .Y = -2.0f, .Z = -12.3f },
+	{ .X =  2.4f, .Y = -0.4f, .Z =  -3.5f },
+	{ .X = -1.7f, .Y =  3.0f, .Z =  -7.5f },
+	{ .X =  1.3f, .Y = -2.0f, .Z =  -2.5f },
+	{ .X =  1.5f, .Y =  2.0f, .Z =  -2.5f },
+	{ .X =  1.5f, .Y =  0.2f, .Z =  -1.5f },
+	{ .X = -1.3f, .Y =  1.0f, .Z =  -1.5f },
+#endif
 };
 
 typedef struct {
@@ -156,6 +197,7 @@ state_init(
 				.attrs = {
 					[ATTR_scene_aPos].format = SG_VERTEXFORMAT_FLOAT3,
 					[ATTR_scene_aTexCoord].format = SG_VERTEXFORMAT_FLOAT2,
+					[ATTR_scene_aNormal].format = SG_VERTEXFORMAT_FLOAT3,
 				},
 			},
 			.label = "scene-pipeline",
@@ -242,28 +284,31 @@ app_frame(
 	sg_apply_pipeline(state->lighting_target_pipeline);
 	sg_apply_bindings(&state->lighting_target_bindings);
 
+	HMM_Vec3 light_pos = HMM_V3(1.2f, 1.f, 2.f);
 	HMM_Vec3 camera_front = cam_direction_from_pitch_yaw(state->camera.pitch, state->camera.yaw);
 	scene_vs_params_t scene_vs_params = {
 		.view       = HMM_LookAt_RH(state->camera.pos, HMM_Add(state->camera.pos, camera_front), CAMERA_UP),
 		.projection = HMM_Perspective_RH_NO(HMM_AngleDeg(state->camera.fov), (f32)WIDTH / (f32)HEIGHT, 0.1f, 100.f),
 	};
-	// for (usize i = 0; i < countof(cube_positions); ++i) {
-	usize i = 0;
+	for (usize i = 0; i < countof(cube_positions); ++i) {
+	// usize i = 0;
 	scene_vs_params.model = HMM_Mul(HMM_Translate(cube_positions[i]),
 	                                HMM_Rotate_RH(HMM_AngleDeg(20.f * i), HMM_V3(1.f, 0.3f, 0.5f)));
+	scene_vs_params.normal = HMM_Transpose(HMM_InvGeneral(scene_vs_params.model));
 	sg_apply_uniforms(UB_scene_vs_params, &SG_RANGE(scene_vs_params));
 	scene_fs_params_t scene_fs_params = {
 		.objectColor = HMM_V3(1.f, 0.5f, 0.31f),
 		.lightColor  = HMM_V3(1.f, 1.f, 1.f),
+		.lightPos    = light_pos,
+		.viewPos     = state->camera.pos,
 	};
 	sg_apply_uniforms(UB_scene_fs_params, &SG_RANGE(scene_fs_params));
 	sg_draw(0, countof(lighting_target_vertices), 1);
-	// }
+	}
 
 	{
 		sg_apply_pipeline(state->lighting_source_pipeline);
 		sg_apply_bindings(&state->lighting_target_bindings);
-		HMM_Vec3 light_pos = HMM_V3(1.2f, 1.f, 2.f);
 		light_vs_params_t light_vs_params = {
 			.view = scene_vs_params.view,
 			.projection = scene_vs_params.projection,
