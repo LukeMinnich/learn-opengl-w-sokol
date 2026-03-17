@@ -28,46 +28,8 @@ typedef struct {
 	HMM_Vec2 tex;
 	HMM_Vec3 norm;
 } Vertex;
-float vertices[] = {
-    -0.5f, -0.5f, -0.5f,  0.0f,  0.0f, -1.0f,
-     0.5f, -0.5f, -0.5f,  0.0f,  0.0f, -1.0f,
-     0.5f,  0.5f, -0.5f,  0.0f,  0.0f, -1.0f,
-     0.5f,  0.5f, -0.5f,  0.0f,  0.0f, -1.0f,
-    -0.5f,  0.5f, -0.5f,  0.0f,  0.0f, -1.0f,
-    -0.5f, -0.5f, -0.5f,  0.0f,  0.0f, -1.0f,
-    -0.5f, -0.5f,  0.5f,  0.0f,  0.0f,  1.0f,
-     0.5f, -0.5f,  0.5f,  0.0f,  0.0f,  1.0f,
-     0.5f,  0.5f,  0.5f,  0.0f,  0.0f,  1.0f,
-     0.5f,  0.5f,  0.5f,  0.0f,  0.0f,  1.0f,
-    -0.5f,  0.5f,  0.5f,  0.0f,  0.0f,  1.0f,
-    -0.5f, -0.5f,  0.5f,  0.0f,  0.0f,  1.0f,
-    -0.5f,  0.5f,  0.5f, -1.0f,  0.0f,  0.0f,
-    -0.5f,  0.5f, -0.5f, -1.0f,  0.0f,  0.0f,
-    -0.5f, -0.5f, -0.5f, -1.0f,  0.0f,  0.0f,
-    -0.5f, -0.5f, -0.5f, -1.0f,  0.0f,  0.0f,
-    -0.5f, -0.5f,  0.5f, -1.0f,  0.0f,  0.0f,
-    -0.5f,  0.5f,  0.5f, -1.0f,  0.0f,  0.0f,
-     0.5f,  0.5f,  0.5f,  1.0f,  0.0f,  0.0f,
-     0.5f,  0.5f, -0.5f,  1.0f,  0.0f,  0.0f,
-     0.5f, -0.5f, -0.5f,  1.0f,  0.0f,  0.0f,
-     0.5f, -0.5f, -0.5f,  1.0f,  0.0f,  0.0f,
-     0.5f, -0.5f,  0.5f,  1.0f,  0.0f,  0.0f,
-     0.5f,  0.5f,  0.5f,  1.0f,  0.0f,  0.0f,
-    -0.5f, -0.5f, -0.5f,  0.0f, -1.0f,  0.0f,
-     0.5f, -0.5f, -0.5f,  0.0f, -1.0f,  0.0f,
-     0.5f, -0.5f,  0.5f,  0.0f, -1.0f,  0.0f,
-     0.5f, -0.5f,  0.5f,  0.0f, -1.0f,  0.0f,
-    -0.5f, -0.5f,  0.5f,  0.0f, -1.0f,  0.0f,
-    -0.5f, -0.5f, -0.5f,  0.0f, -1.0f,  0.0f,
-    -0.5f,  0.5f, -0.5f,  0.0f,  1.0f,  0.0f,
-     0.5f,  0.5f, -0.5f,  0.0f,  1.0f,  0.0f,
-     0.5f,  0.5f,  0.5f,  0.0f,  1.0f,  0.0f,
-     0.5f,  0.5f,  0.5f,  0.0f,  1.0f,  0.0f,
-    -0.5f,  0.5f,  0.5f,  0.0f,  1.0f,  0.0f,
-    -0.5f,  0.5f, -0.5f,  0.0f,  1.0f,  0.0f,
-};
 
-static const Vertex lighting_target_vertices[] = {
+static const Vertex cube_vertices[] = {
 	{{ .X = -0.5f, .Y = -0.5f, .Z = -0.5f },{ .U = 0.0f, .V = 0.0f },{.X =  0.0f, .Y =  0.0f, .Z = -1.0f}},
 	{{ .X =  0.5f, .Y = -0.5f, .Z = -0.5f },{ .U = 1.0f, .V = 0.0f },{.X =  0.0f, .Y =  0.0f, .Z = -1.0f}},
 	{{ .X =  0.5f, .Y =  0.5f, .Z = -0.5f },{ .U = 1.0f, .V = 1.0f },{.X =  0.0f, .Y =  0.0f, .Z = -1.0f}},
@@ -142,6 +104,58 @@ typedef struct {
 
 #define countof(x) (sizeof(x) / sizeof((x)[0]))
 
+static const DirLight_t dir_lights[] = {
+	{
+		.direction = { .X = -0.2f , -1.f  , -0.3f  },
+		.ambient   = { .X =  0.05f,  0.05f,  0.05f },
+		.diffuse   = { .X =  0.4f ,  0.4f ,  0.4f  },
+		.specular  = { .X =  0.5f ,  0.5f ,  0.5f  },
+	},
+};
+
+static const HMM_Vec3 point_light_positions[] = {
+	{ .X =  0.7f,  0.2f,   2.0f },
+	{ .X =  2.3f, -3.3f,  -4.0f },
+	{ .X = -4.0f,  2.0f, -12.0f },
+	{ .X =  0.0f,  0.0f,  -3.0f },
+};
+
+static const PointLight_t point_lights[] = {
+	{
+		.position  = point_light_positions[0],
+		.ambient   = { .X =  0.05f,  0.05f,  0.05f },
+		.diffuse   = { .X =  0.8f ,  0.8f ,  0.8f  },
+		.specular  = { .X =  1.0f ,  1.0f ,  1.0f  },
+		.constant  = 1.f,
+		.linear    = 0.09f,
+		.quadratic = 0.032f,
+	}, {
+		.position  = point_light_positions[1],
+		.ambient   = { .X =  0.05f,  0.00f,  0.00f },
+		.diffuse   = { .X =  0.8f ,  0.0f ,  0.0f  },
+		.specular  = { .X =  1.0f ,  0.0f ,  0.0f  },
+		.constant  = 1.f,
+		.linear    = 0.09f,
+		.quadratic = 0.032f,
+	}, {
+		.position  = point_light_positions[2],
+		.ambient   = { .X =  0.00f,  0.05f,  0.00f },
+		.diffuse   = { .X =  0.0f ,  0.8f ,  0.0f  },
+		.specular  = { .X =  0.0f ,  1.0f ,  0.0f  },
+		.constant  = 1.f,
+		.linear    = 0.09f,
+		.quadratic = 0.032f,
+	}, {
+		.position  = point_light_positions[3],
+		.ambient   = { .X =  0.00f,  0.00f,  0.05f },
+		.diffuse   = { .X =  0.0f ,  0.0f ,  0.8f  },
+		.specular  = { .X =  0.0f ,  0.0f ,  1.0f  },
+		.constant  = 1.f,
+		.linear    = 0.09f,
+		.quadratic = 0.032f,
+	},
+};
+
 static HMM_Vec3
 cam_direction_from_pitch_yaw(
 	float pitch,
@@ -187,6 +201,12 @@ state_init(
 	});
 	stbi_image_free(specular_data);
 
+	sg_buffer cube_vertex_bufffer = sg_make_buffer(&(sg_buffer_desc){
+		.usage.vertex_buffer = true,
+		.data = SG_RANGE(cube_vertices),
+		.label = "vertex-buffer",
+	});
+
 	*state = (AppState){
 		.lighting_target_pipeline = sg_make_pipeline(&(sg_pipeline_desc){
 			.shader = sg_make_shader(scene_shader_desc(sg_query_backend())),
@@ -197,7 +217,7 @@ state_init(
 					[ATTR_scene_aNormal].format = SG_VERTEXFORMAT_FLOAT3,
 				},
 			},
-			.label = "scene-pipeline",
+			.label = "lighting-target-pipeline",
 			.depth = {
 				.write_enabled = true,
 				.compare = SG_COMPAREFUNC_LESS_EQUAL,
@@ -213,17 +233,13 @@ state_init(
 					[ATTR_light_aPos].stride = sizeof(Vertex),
 				},
 			},
-			.label = "scene-pipeline",
+			.label = "lighting-source-pipeline",
 			.depth = {
 				.write_enabled = true,
 				.compare = SG_COMPAREFUNC_LESS_EQUAL,
 			}
 		}),
-		.lighting_target_bindings.vertex_buffers[0] = sg_make_buffer(&(sg_buffer_desc){
-			.usage.vertex_buffer = true,
-			.data = SG_RANGE(lighting_target_vertices),
-			.label = "vertex-buffer",
-		}),
+		.lighting_target_bindings.vertex_buffers[0] = cube_vertex_bufffer,
 		.lighting_target_bindings.views[VIEW_diffuseTexture] = sg_make_view(&(sg_view_desc){
 			.texture = {.image = diffuse_img },
 			.label = "diffuse-texture",
@@ -232,16 +248,32 @@ state_init(
 			.texture = {.image = specular_img },
 			.label = "specular-texture",
 		}),
+		.lighting_target_bindings.views[VIEW_in_dir_lights] = sg_make_view(&(sg_view_desc){
+			.storage_buffer =  {
+				.buffer = sg_make_buffer(&(sg_buffer_desc){
+					.usage.storage_buffer = true,
+					.data = SG_RANGE(dir_lights),
+					.label = "directional-lights",
+				}),
+			},
+			.label = "directional-lights-storage",
+		}),
+		.lighting_target_bindings.views[VIEW_in_point_lights] = sg_make_view(&(sg_view_desc){
+			.storage_buffer =  {
+				.buffer = sg_make_buffer(&(sg_buffer_desc){
+					.usage.storage_buffer = true,
+					.data = SG_RANGE(point_lights),
+					.label = "point-lights",
+				}),
+			},
+			.label = "point-lights-storage",
+		}),
 		.lighting_target_bindings.samplers[SMP_boxSampler] = sg_make_sampler(&(sg_sampler_desc){
 			.min_filter = SG_FILTER_LINEAR,
 			.mag_filter = SG_FILTER_LINEAR,
 			.label = "box-sampler"
 		}),
-		.lighting_source_bindings.vertex_buffers[0] = sg_make_buffer(&(sg_buffer_desc){
-			.usage.vertex_buffer = true,
-			.data = SG_RANGE(lighting_target_vertices),
-			.label = "vertex-buffer",
-		}),
+		.lighting_source_bindings.vertex_buffers[0] = cube_vertex_bufffer,
 		.pass_action = (sg_pass_action) {
 			.colors[0] = {
 				.load_action = SG_LOADACTION_CLEAR,
@@ -274,7 +306,6 @@ app_frame(
 	sg_apply_pipeline(state->lighting_target_pipeline);
 	sg_apply_bindings(&state->lighting_target_bindings);
 
-	HMM_Vec3 light_pos = HMM_V3(1.2f, 1.f, 2.f);
 	HMM_Vec3 camera_front = cam_direction_from_pitch_yaw(state->camera.pitch, state->camera.yaw);
 	scene_vs_params_t scene_vs_params = {
 		.view       = HMM_LookAt_RH(state->camera.pos, HMM_Add(state->camera.pos, camera_front), CAMERA_UP),
@@ -286,24 +317,11 @@ app_frame(
 	                              sin(stm_sec(current_frame) * 0.7f),
 	                              sin(stm_sec(current_frame) * 1.3f));
 #endif
-	HMM_Vec3 light_color = HMM_V3(1.f, 1.f, 1.f);
-
 	{
 		scene_material_t scene_material = {
 			.mat_shininess = 32.f,
 		};
 		sg_apply_uniforms(UB_scene_material, &SG_RANGE(scene_material));
-
-		scene_light_t scene_light = {
-			.light_position = state->camera.pos,
-			.light_direction = camera_front,
-			.light_ambient = HMM_Mul(light_color, 0.2f),
-			.light_diffuse = HMM_Mul(light_color, 0.5f),
-			.light_specular = HMM_V3(1.f, 1.f, 1.f),
-			.light_cutoff = cosf(HMM_AngleDeg(12.5f)),
-			.light_outer_cutoff = cosf(HMM_AngleDeg(17.5f)),
-		};
-		sg_apply_uniforms(UB_scene_light, &SG_RANGE(scene_light));
 	}
 
 	for (usize i = 0; i < countof(cube_positions); ++i) {
@@ -312,27 +330,29 @@ app_frame(
 		scene_vs_params.normal = HMM_Transpose(HMM_InvGeneral(scene_vs_params.model));
 		sg_apply_uniforms(UB_scene_vs_params, &SG_RANGE(scene_vs_params));
 		scene_fs_params_t scene_fs_params = {
-			.viewPos     = state->camera.pos,
+			.viewPos = state->camera.pos,
+			.n_dir_lights = countof(dir_lights),
+			.n_point_lights = countof(point_lights),
 		};
 		sg_apply_uniforms(UB_scene_fs_params, &SG_RANGE(scene_fs_params));
-		sg_draw(0, countof(lighting_target_vertices), 1);
+		sg_draw(0, countof(cube_vertices), 1);
 	}
 
-	{
+	for (usize i = 0; i < countof(point_lights); ++i){
 		sg_apply_pipeline(state->lighting_source_pipeline);
-		sg_apply_bindings(&state->lighting_target_bindings);
+		sg_apply_bindings(&state->lighting_source_bindings);
 		light_vs_params_t light_vs_params = {
 			.view = scene_vs_params.view,
 			.projection = scene_vs_params.projection,
-			.model = HMM_Mul(HMM_Translate(light_pos),
-		                   HMM_Scale(HMM_V3(0.2f, 0.2f, 0.2f))),
+			.model = HMM_Mul(HMM_Translate(point_lights[i].position),
+			                 HMM_Scale(HMM_V3(0.2f, 0.2f, 0.2f))),
 		};
 		sg_apply_uniforms(UB_light_vs_params, &SG_RANGE(light_vs_params));
 		light_fs_params_t light_fs_params = {
-			.light_color = light_color,
+			.light_color = point_lights[i].specular,
 		};
 		sg_apply_uniforms(UB_light_fs_params, &SG_RANGE(light_fs_params));
-		sg_draw(0, countof(lighting_target_vertices), 1);
+		sg_draw(0, countof(cube_vertices), 1);
 	}
 
 	sg_end_pass();

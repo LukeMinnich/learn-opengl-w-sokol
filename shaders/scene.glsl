@@ -30,25 +30,43 @@ void main(
 @end
 
 @fs scene_fs
-layout(binding=0) uniform texture2D diffuseTexture;
-layout(binding=1) uniform texture2D specularTexture;
 layout(binding=0) uniform sampler boxSampler; // there only needs to be one of these for many
                                               // material texture lookups
 layout(binding=1) uniform scene_fs_params {
 	vec3 viewPos;
+	int n_dir_lights;
+	int n_point_lights;
 };
 layout(binding=2) uniform scene_material {
 	float mat_shininess;
 };
-layout(binding=3) uniform scene_light {
-	vec3  light_position;
-	vec3  light_direction;
-	vec3  light_ambient;
-	vec3  light_diffuse;
-	vec3  light_specular;
-	float light_cutoff;
-	float light_outer_cutoff;
+
+layout(binding=0) uniform texture2D diffuseTexture;
+layout(binding=1) uniform texture2D specularTexture;
+struct DirLight {
+	vec3 direction;
+	vec3 ambient;
+	vec3 diffuse;
+	vec3 specular;
 };
+layout(binding=2) readonly buffer in_dir_lights {
+	DirLight dir_lights[];
+};
+vec3 CalcDirLight(DirLight light, vec3 normal, vec3 viewDir);
+
+struct PointLight {
+	vec3 position;
+	vec3 ambient;
+	vec3 diffuse;
+	vec3 specular;
+	float constant;
+	float linear;
+	float quadratic;
+};
+layout(binding=3) readonly buffer in_point_lights {
+	PointLight point_lights[];
+};
+vec3 CalcPointLight(PointLight light, vec3 normal, vec3 viewDir, vec3 fragPos);
 
 in vec2 TexCoord;
 in vec3 FragPos;
@@ -59,34 +77,62 @@ out vec4 FragColor;
 void main(
 	void
 ) {
+	vec3 norm = normalize(Normal);
+	vec3 viewDir = normalize(viewPos - FragPos);
+
+	vec3 result = vec3(0.);
+	for (int i = 0; i < n_dir_lights; ++i) {
+		result += CalcDirLight(dir_lights[i], norm, viewDir);
+	}
+	for (int i = 0; i < n_point_lights; ++i) {
+		result += CalcPointLight(point_lights[i], norm, viewDir, FragPos);
+	}
+
+	FragColor = vec4(result, 1.);
+}
+
+vec3
+CalcDirLight(
+	DirLight light,
+	vec3 normal,
+	vec3 viewDir
+) {
+	vec3 lightDir = normalize(-light.direction);
 	// sample texture for diffuse/ambient
 	vec3 sampled_diffuse  = vec3(texture(sampler2D(diffuseTexture , boxSampler), TexCoord));
 	vec3 sampled_specular = vec3(texture(sampler2D(specularTexture, boxSampler), TexCoord));
-
-	// spotlight
-	vec3 lightDir = normalize(light_position - FragPos);
-	float cos_theta = dot(lightDir, normalize(-light_direction));
-	float epsilon = light_cutoff - light_outer_cutoff;
-	float intensity = smoothstep(0.f, 1.f, (cos_theta - light_outer_cutoff) / epsilon);
-
 	// ambient
-	vec3 ambient = light_ambient * sampled_diffuse;
-	ambient *= intensity;
-
+	vec3 ambient = light.ambient * sampled_diffuse;
 	// diffuse
-	vec3 norm = normalize(Normal);
-	float diff = max(dot(norm, lightDir), 0.);
-	vec3 diffuse = light_diffuse * diff * sampled_diffuse;
-	diffuse *= intensity;
-
+	float diff = max(dot(normal, lightDir), 0.);
+	vec3 diffuse = light.diffuse * diff * sampled_diffuse;
 	// specular
-	vec3 viewDir = normalize(viewPos - FragPos);
-	vec3 reflectDir = reflect(-lightDir, norm);
+	vec3 reflectDir = reflect(-lightDir, normal);
 	float spec = pow(max(dot(viewDir, reflectDir), 0.), mat_shininess);
-	vec3 specular = light_specular * spec * sampled_specular;
+	vec3 specular = light.specular * spec * sampled_specular;
+	return ambient + diffuse + specular;
+}
 
-	vec3 result = ambient + diffuse + specular;
-	FragColor = vec4(result, 1.);
+vec3
+CalcPointLight(
+	PointLight light,
+	vec3 normal,
+	vec3 viewDir,
+	vec3 fragPos
+) {
+	DirLight equiv_dir_light;
+	equiv_dir_light.direction = fragPos - light.position,
+	equiv_dir_light.ambient   = light.ambient;
+	equiv_dir_light.diffuse   = light.diffuse;
+	equiv_dir_light.specular  = light.specular;
+
+	vec3 result = CalcDirLight(equiv_dir_light, normal, viewDir);
+
+	// attenuation
+	float distance = length(light.position - fragPos);
+	float attenuation = 1. / (light.constant + light.linear * distance + light.quadratic * distance * distance);
+
+	return attenuation * result;
 }
 @end
 
