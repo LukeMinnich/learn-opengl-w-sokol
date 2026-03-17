@@ -108,7 +108,6 @@ static const Vertex lighting_target_vertices[] = {
 
 static const HMM_Vec3 cube_positions[] = {
 	{ .X =  0.0f, .Y =  0.0f, .Z =   0.0f },
-#if 0
 	{ .X =  2.0f, .Y =  5.0f, .Z = -15.0f },
 	{ .X = -1.5f, .Y = -2.2f, .Z =  -2.5f },
 	{ .X = -3.8f, .Y = -2.0f, .Z = -12.3f },
@@ -118,7 +117,6 @@ static const HMM_Vec3 cube_positions[] = {
 	{ .X =  1.5f, .Y =  2.0f, .Z =  -2.5f },
 	{ .X =  1.5f, .Y =  0.2f, .Z =  -1.5f },
 	{ .X = -1.3f, .Y =  1.0f, .Z =  -1.5f },
-#endif
 };
 
 typedef struct {
@@ -297,10 +295,13 @@ app_frame(
 		sg_apply_uniforms(UB_scene_material, &SG_RANGE(scene_material));
 
 		scene_light_t scene_light = {
-			.light_position = light_pos,
+			.light_position = state->camera.pos,
+			.light_direction = camera_front,
 			.light_ambient = HMM_Mul(light_color, 0.2f),
 			.light_diffuse = HMM_Mul(light_color, 0.5f),
 			.light_specular = HMM_V3(1.f, 1.f, 1.f),
+			.light_cutoff = cosf(HMM_AngleDeg(12.5f)),
+			.light_outer_cutoff = cosf(HMM_AngleDeg(17.5f)),
 		};
 		sg_apply_uniforms(UB_scene_light, &SG_RANGE(scene_light));
 	}

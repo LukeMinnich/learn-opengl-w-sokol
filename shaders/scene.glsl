@@ -42,9 +42,12 @@ layout(binding=2) uniform scene_material {
 };
 layout(binding=3) uniform scene_light {
 	vec3  light_position;
+	vec3  light_direction;
 	vec3  light_ambient;
 	vec3  light_diffuse;
 	vec3  light_specular;
+	float light_cutoff;
+	float light_outer_cutoff;
 };
 
 in vec2 TexCoord;
@@ -60,14 +63,21 @@ void main(
 	vec3 sampled_diffuse  = vec3(texture(sampler2D(diffuseTexture , boxSampler), TexCoord));
 	vec3 sampled_specular = vec3(texture(sampler2D(specularTexture, boxSampler), TexCoord));
 
+	// spotlight
+	vec3 lightDir = normalize(light_position - FragPos);
+	float cos_theta = dot(lightDir, normalize(-light_direction));
+	float epsilon = light_cutoff - light_outer_cutoff;
+	float intensity = smoothstep(0.f, 1.f, (cos_theta - light_outer_cutoff) / epsilon);
+
 	// ambient
 	vec3 ambient = light_ambient * sampled_diffuse;
+	ambient *= intensity;
 
 	// diffuse
 	vec3 norm = normalize(Normal);
-	vec3 lightDir = normalize(light_position - FragPos);
 	float diff = max(dot(norm, lightDir), 0.);
 	vec3 diffuse = light_diffuse * diff * sampled_diffuse;
+	diffuse *= intensity;
 
 	// specular
 	vec3 viewDir = normalize(viewPos - FragPos);
