@@ -107,9 +107,9 @@ typedef struct {
 static const DirLight_t dir_lights[] = {
 	{
 		.direction = { .X = -0.2f , -1.f  , -0.3f  },
-		.ambient   = { .X =  0.05f,  0.05f,  0.05f },
-		.diffuse   = { .X =  0.4f ,  0.4f ,  0.4f  },
-		.specular  = { .X =  0.5f ,  0.5f ,  0.5f  },
+		.ambient   = { .R =  0.05f,  0.05f,  0.05f },
+		.diffuse   = { .R =  0.4f ,  0.4f ,  0.4f  },
+		.specular  = { .R =  0.5f ,  0.5f ,  0.5f  },
 	},
 };
 
@@ -123,33 +123,33 @@ static const HMM_Vec3 point_light_positions[] = {
 static const PointLight_t point_lights[] = {
 	{
 		.position  = point_light_positions[0],
-		.ambient   = { .X =  0.05f,  0.05f,  0.05f },
-		.diffuse   = { .X =  0.8f ,  0.8f ,  0.8f  },
-		.specular  = { .X =  1.0f ,  1.0f ,  1.0f  },
+		.ambient   = { .R =  0.05f,  0.05f,  0.05f },
+		.diffuse   = { .R =  0.8f ,  0.8f ,  0.8f  },
+		.specular  = { .R =  1.0f ,  1.0f ,  1.0f  },
 		.constant  = 1.f,
 		.linear    = 0.09f,
 		.quadratic = 0.032f,
 	}, {
 		.position  = point_light_positions[1],
-		.ambient   = { .X =  0.05f,  0.00f,  0.00f },
-		.diffuse   = { .X =  0.8f ,  0.0f ,  0.0f  },
-		.specular  = { .X =  1.0f ,  0.0f ,  0.0f  },
+		.ambient   = { .R =  0.05f },
+		.diffuse   = { .R =  0.8f  },
+		.specular  = { .R =  1.0f  },
 		.constant  = 1.f,
 		.linear    = 0.09f,
 		.quadratic = 0.032f,
 	}, {
 		.position  = point_light_positions[2],
-		.ambient   = { .X =  0.00f,  0.05f,  0.00f },
-		.diffuse   = { .X =  0.0f ,  0.8f ,  0.0f  },
-		.specular  = { .X =  0.0f ,  1.0f ,  0.0f  },
+		.ambient   = { .G = 0.05f },
+		.diffuse   = { .G = 0.8f  },
+		.specular  = { .G = 1.0f  },
 		.constant  = 1.f,
 		.linear    = 0.09f,
 		.quadratic = 0.032f,
 	}, {
 		.position  = point_light_positions[3],
-		.ambient   = { .X =  0.00f,  0.00f,  0.05f },
-		.diffuse   = { .X =  0.0f ,  0.0f ,  0.8f  },
-		.specular  = { .X =  0.0f ,  0.0f ,  1.0f  },
+		.ambient   = { .B = 0.05f },
+		.diffuse   = { .B = 0.8f  },
+		.specular  = { .B = 1.0f  },
 		.constant  = 1.f,
 		.linear    = 0.09f,
 		.quadratic = 0.032f,
@@ -303,27 +303,20 @@ app_frame(
 		.swapchain = sglue_swapchain()
 	});
 
+	/* Draw textured boxes */
 	sg_apply_pipeline(state->lighting_target_pipeline);
 	sg_apply_bindings(&state->lighting_target_bindings);
+
+	scene_material_t scene_material = {
+		.mat_shininess = 32.f,
+	};
+	sg_apply_uniforms(UB_scene_material, &SG_RANGE(scene_material));
 
 	HMM_Vec3 camera_front = cam_direction_from_pitch_yaw(state->camera.pitch, state->camera.yaw);
 	scene_vs_params_t scene_vs_params = {
 		.view       = HMM_LookAt_RH(state->camera.pos, HMM_Add(state->camera.pos, camera_front), CAMERA_UP),
 		.projection = HMM_Perspective_RH_NO(HMM_AngleDeg(state->camera.fov), (f32)WIDTH / (f32)HEIGHT, 0.1f, 100.f),
 	};
-
-#if 0
-	HMM_Vec3 light_color = HMM_V3(sin(stm_sec(current_frame) * 2.0f),
-	                              sin(stm_sec(current_frame) * 0.7f),
-	                              sin(stm_sec(current_frame) * 1.3f));
-#endif
-	{
-		scene_material_t scene_material = {
-			.mat_shininess = 32.f,
-		};
-		sg_apply_uniforms(UB_scene_material, &SG_RANGE(scene_material));
-	}
-
 	for (usize i = 0; i < countof(cube_positions); ++i) {
 		scene_vs_params.model = HMM_Mul(HMM_Translate(cube_positions[i]),
 		                                HMM_Rotate_RH(HMM_AngleDeg(20.f * i), HMM_V3(1.f, 0.3f, 0.5f)));
@@ -338,15 +331,17 @@ app_frame(
 		sg_draw(0, countof(cube_vertices), 1);
 	}
 
+	/* Draw point light boxes */
+	sg_apply_pipeline(state->lighting_source_pipeline);
+	sg_apply_bindings(&state->lighting_source_bindings);
+
+	light_vs_params_t light_vs_params = {
+		.view = scene_vs_params.view,
+		.projection = scene_vs_params.projection,
+	};
 	for (usize i = 0; i < countof(point_lights); ++i){
-		sg_apply_pipeline(state->lighting_source_pipeline);
-		sg_apply_bindings(&state->lighting_source_bindings);
-		light_vs_params_t light_vs_params = {
-			.view = scene_vs_params.view,
-			.projection = scene_vs_params.projection,
-			.model = HMM_Mul(HMM_Translate(point_lights[i].position),
-			                 HMM_Scale(HMM_V3(0.2f, 0.2f, 0.2f))),
-		};
+		light_vs_params.model = HMM_Mul(HMM_Translate(point_lights[i].position),
+		                        HMM_Scale(HMM_V3(0.2f, 0.2f, 0.2f)));
 		sg_apply_uniforms(UB_light_vs_params, &SG_RANGE(light_vs_params));
 		light_fs_params_t light_fs_params = {
 			.light_color = point_lights[i].specular,
