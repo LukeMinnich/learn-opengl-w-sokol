@@ -121,7 +121,7 @@ CalcPointLight(
 	vec3 fragPos
 ) {
 	DirLight equiv_dir_light;
-	equiv_dir_light.direction = fragPos - light.position,
+	equiv_dir_light.direction = fragPos - light.position, // expect normalization in `CalcDirLight()`
 	equiv_dir_light.ambient   = light.ambient;
 	equiv_dir_light.diffuse   = light.diffuse;
 	equiv_dir_light.specular  = light.specular;
