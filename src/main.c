@@ -169,37 +169,37 @@ cam_direction_from_pitch_yaw(
 	return HMM_Norm(dir);
 }
 
+static
+void load_image(
+	const char *filename,
+	sg_image *img
+) {
+	stbi_set_flip_vertically_on_load(true);
+	int w, h, n_channels;
+	byte *img_data = stbi_load(filename, &w, &h, &n_channels, 4);
+	if (img_data) {
+		*img = sg_make_image(&(sg_image_desc){
+			.width = w,
+			.height = h,
+			.pixel_format = SG_PIXELFORMAT_RGBA8,
+			.data.mip_levels[0] = {
+				.ptr = img_data,
+				.size = (size_t)(w * h * 4),
+			},
+		});
+		stbi_image_free(img_data);
+	} else {
+		assert(false);
+	}
+}
+
 static void
 state_init(
 	AppState *state
 ) {
-	stbi_set_flip_vertically_on_load(true);
-	int w, h, n_channels;
-	byte *diffuse_data = stbi_load("assets/container2.png", &w, &h, &n_channels, 4);
-	assert(diffuse_data);
-	sg_image diffuse_img = sg_make_image(&(sg_image_desc){
-		.width = w,
-		.height = h,
-		.pixel_format = SG_PIXELFORMAT_RGBA8,
-		.data.mip_levels[0] = {
-			.ptr = diffuse_data,
-			.size = (size_t)(w * h * 4),
-		},
-	});
-	stbi_image_free(diffuse_data);
-
-	byte *specular_data = stbi_load("assets/container2_specular.png", &w, &h, &n_channels, 4);
-	assert(specular_data);
-	sg_image specular_img = sg_make_image(&(sg_image_desc){
-		.width = w,
-		.height = h,
-		.pixel_format = SG_PIXELFORMAT_RGBA8,
-		.data.mip_levels[0] = {
-			.ptr = specular_data,
-			.size = (size_t)(w * h * 4),
-		},
-	});
-	stbi_image_free(specular_data);
+	sg_image diffuse_img, specular_img;
+	load_image("assets/container2.png"         , &diffuse_img);
+	load_image("assets/container2_specular.png", &specular_img);
 
 	sg_buffer cube_vertex_bufffer = sg_make_buffer(&(sg_buffer_desc){
 		.usage.vertex_buffer = true,
