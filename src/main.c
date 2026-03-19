@@ -8,78 +8,183 @@
 #include "sokol_time.h"
 
 #include "handmade_math.h"
-#include <stdbool.h>
 #define STB_IMAGE_IMPLEMENTATION
 #include "stb_image.h"
+#define FAST_OBJ_IMPLEMENTATION
+#include "fast_obj.h"
 
+#include <float.h>
 #include <stdlib.h>
 
 typedef float f32;
 typedef uint16_t u16;
+typedef uint32_t u32;
 typedef size_t usize;
 typedef unsigned char byte;
+
+typedef u16 INDEX_TYPE;
+
+#define countof(x) (sizeof(x) / sizeof((x)[0]))
 
 #define WIDTH 800
 #define HEIGHT 600
 #define FOV_MAX 45.f
 
+#if 0
+#define W_CHECKERBOARD 4
+#define H_CHECKERBOARD 4
+static const byte checkerboard_data[4 * W_CHECKERBOARD * H_CHECKERBOARD] = {
+	0x00, 0x00, 0x00, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0x00, 0x00, 0x00, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF,
+	0xFF, 0xFF, 0xFF, 0xFF, 0x00, 0x00, 0x00, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0x00, 0x00, 0x00, 0xFF, 
+	0x00, 0x00, 0x00, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0x00, 0x00, 0x00, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF,
+	0xFF, 0xFF, 0xFF, 0xFF, 0x00, 0x00, 0x00, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0x00, 0x00, 0x00, 0xFF, 
+};
+
+static
+void checkerboard(
+	sg_image *img
+) {
+	*img = sg_make_image(&(sg_image_desc){
+		.width = W_CHECKERBOARD,
+		.height = H_CHECKERBOARD,
+		.pixel_format = SG_PIXELFORMAT_RGBA8,
+		.data.mip_levels[0] = {
+			.ptr = checkerboard_data,
+			.size = sizeof(checkerboard_data),
+		},
+	});
+}
+
+static const byte solid_white_data[4] = { 0xFF, 0xFF, 0xFF, 0xFF };
+
+static
+void solid_white(
+	sg_image *img
+) {
+	*img = sg_make_image(&(sg_image_desc){
+		.width = 1,
+		.height = 1,
+		.pixel_format = SG_PIXELFORMAT_RGBA8,
+		.data.mip_levels[0] = {
+			.ptr = solid_white_data,
+			.size = sizeof(solid_white_data),
+		},
+	});
+}
+#endif
+
 typedef struct {
 	HMM_Vec3 pos;
-	HMM_Vec2 tex;
 	HMM_Vec3 norm;
+	HMM_Vec2 tex;
 } Vertex;
 
-static const Vertex cube_vertices[] = {
-	{ { .X = -0.5f, -0.5f, -0.5f }, { .U = 0.0f, 0.0f }, {.X =  0.0f,  0.0f, -1.0f} },
-	{ { .X =  0.5f, -0.5f, -0.5f }, { .U = 1.0f, 0.0f }, {.X =  0.0f,  0.0f, -1.0f} },
-	{ { .X =  0.5f,  0.5f, -0.5f }, { .U = 1.0f, 1.0f }, {.X =  0.0f,  0.0f, -1.0f} },
-	{ { .X =  0.5f,  0.5f, -0.5f }, { .U = 1.0f, 1.0f }, {.X =  0.0f,  0.0f, -1.0f} },
-	{ { .X = -0.5f,  0.5f, -0.5f }, { .U = 0.0f, 1.0f }, {.X =  0.0f,  0.0f, -1.0f} },
-	{ { .X = -0.5f, -0.5f, -0.5f }, { .U = 0.0f, 0.0f }, {.X =  0.0f,  0.0f, -1.0f} },
-	{ { .X = -0.5f, -0.5f,  0.5f }, { .U = 0.0f, 0.0f }, {.X =  0.0f,  0.0f,  1.0f} },
-	{ { .X =  0.5f, -0.5f,  0.5f }, { .U = 1.0f, 0.0f }, {.X =  0.0f,  0.0f,  1.0f} },
-	{ { .X =  0.5f,  0.5f,  0.5f }, { .U = 1.0f, 1.0f }, {.X =  0.0f,  0.0f,  1.0f} },
-	{ { .X =  0.5f,  0.5f,  0.5f }, { .U = 1.0f, 1.0f }, {.X =  0.0f,  0.0f,  1.0f} },
-	{ { .X = -0.5f,  0.5f,  0.5f }, { .U = 0.0f, 1.0f }, {.X =  0.0f,  0.0f,  1.0f} },
-	{ { .X = -0.5f, -0.5f,  0.5f }, { .U = 0.0f, 0.0f }, {.X =  0.0f,  0.0f,  1.0f} },
-	{ { .X = -0.5f,  0.5f,  0.5f }, { .U = 1.0f, 0.0f }, {.X = -1.0f,  0.0f,  0.0f} },
-	{ { .X = -0.5f,  0.5f, -0.5f }, { .U = 1.0f, 1.0f }, {.X = -1.0f,  0.0f,  0.0f} },
-	{ { .X = -0.5f, -0.5f, -0.5f }, { .U = 0.0f, 1.0f }, {.X = -1.0f,  0.0f,  0.0f} },
-	{ { .X = -0.5f, -0.5f, -0.5f }, { .U = 0.0f, 1.0f }, {.X = -1.0f,  0.0f,  0.0f} },
-	{ { .X = -0.5f, -0.5f,  0.5f }, { .U = 0.0f, 0.0f }, {.X = -1.0f,  0.0f,  0.0f} },
-	{ { .X = -0.5f,  0.5f,  0.5f }, { .U = 1.0f, 0.0f }, {.X = -1.0f,  0.0f,  0.0f} },
-	{ { .X =  0.5f,  0.5f,  0.5f }, { .U = 1.0f, 0.0f }, {.X =  1.0f,  0.0f,  0.0f} },
-	{ { .X =  0.5f,  0.5f, -0.5f }, { .U = 1.0f, 1.0f }, {.X =  1.0f,  0.0f,  0.0f} },
-	{ { .X =  0.5f, -0.5f, -0.5f }, { .U = 0.0f, 1.0f }, {.X =  1.0f,  0.0f,  0.0f} },
-	{ { .X =  0.5f, -0.5f, -0.5f }, { .U = 0.0f, 1.0f }, {.X =  1.0f,  0.0f,  0.0f} },
-	{ { .X =  0.5f, -0.5f,  0.5f }, { .U = 0.0f, 0.0f }, {.X =  1.0f,  0.0f,  0.0f} },
-	{ { .X =  0.5f,  0.5f,  0.5f }, { .U = 1.0f, 0.0f }, {.X =  1.0f,  0.0f,  0.0f} },
-	{ { .X = -0.5f, -0.5f, -0.5f }, { .U = 0.0f, 1.0f }, {.X =  0.0f, -1.0f,  0.0f} },
-	{ { .X =  0.5f, -0.5f, -0.5f }, { .U = 1.0f, 1.0f }, {.X =  0.0f, -1.0f,  0.0f} },
-	{ { .X =  0.5f, -0.5f,  0.5f }, { .U = 1.0f, 0.0f }, {.X =  0.0f, -1.0f,  0.0f} },
-	{ { .X =  0.5f, -0.5f,  0.5f }, { .U = 1.0f, 0.0f }, {.X =  0.0f, -1.0f,  0.0f} },
-	{ { .X = -0.5f, -0.5f,  0.5f }, { .U = 0.0f, 0.0f }, {.X =  0.0f, -1.0f,  0.0f} },
-	{ { .X = -0.5f, -0.5f, -0.5f }, { .U = 0.0f, 1.0f }, {.X =  0.0f, -1.0f,  0.0f} },
-	{ { .X = -0.5f,  0.5f, -0.5f }, { .U = 0.0f, 1.0f }, {.X =  0.0f,  1.0f,  0.0f} },
-	{ { .X =  0.5f,  0.5f, -0.5f }, { .U = 1.0f, 1.0f }, {.X =  0.0f,  1.0f,  0.0f} },
-	{ { .X =  0.5f,  0.5f,  0.5f }, { .U = 1.0f, 0.0f }, {.X =  0.0f,  1.0f,  0.0f} },
-	{ { .X =  0.5f,  0.5f,  0.5f }, { .U = 1.0f, 0.0f }, {.X =  0.0f,  1.0f,  0.0f} },
-	{ { .X = -0.5f,  0.5f,  0.5f }, { .U = 0.0f, 0.0f }, {.X =  0.0f,  1.0f,  0.0f} },
-	{ { .X = -0.5f,  0.5f, -0.5f }, { .U = 0.0f, 1.0f }, {.X =  0.0f,  1.0f,  0.0f} },
+Vertex cube_vertices[] = {
+	{ { .X = -0.5f, -0.5f, -0.5f }, {.X =  0.0f,  0.0f, -1.0f}, { .U = 0.0f, 0.0f } },
+	{ { .X =  0.5f, -0.5f, -0.5f }, {.X =  0.0f,  0.0f, -1.0f}, { .U = 1.0f, 0.0f } },
+	{ { .X =  0.5f,  0.5f, -0.5f }, {.X =  0.0f,  0.0f, -1.0f}, { .U = 1.0f, 1.0f } },
+	{ { .X =  0.5f,  0.5f, -0.5f }, {.X =  0.0f,  0.0f, -1.0f}, { .U = 1.0f, 1.0f } },
+	{ { .X = -0.5f,  0.5f, -0.5f }, {.X =  0.0f,  0.0f, -1.0f}, { .U = 0.0f, 1.0f } },
+	{ { .X = -0.5f, -0.5f, -0.5f }, {.X =  0.0f,  0.0f, -1.0f}, { .U = 0.0f, 0.0f } },
+	{ { .X = -0.5f, -0.5f,  0.5f }, {.X =  0.0f,  0.0f,  1.0f}, { .U = 0.0f, 0.0f } },
+	{ { .X =  0.5f, -0.5f,  0.5f }, {.X =  0.0f,  0.0f,  1.0f}, { .U = 1.0f, 0.0f } },
+	{ { .X =  0.5f,  0.5f,  0.5f }, {.X =  0.0f,  0.0f,  1.0f}, { .U = 1.0f, 1.0f } },
+	{ { .X =  0.5f,  0.5f,  0.5f }, {.X =  0.0f,  0.0f,  1.0f}, { .U = 1.0f, 1.0f } },
+	{ { .X = -0.5f,  0.5f,  0.5f }, {.X =  0.0f,  0.0f,  1.0f}, { .U = 0.0f, 1.0f } },
+	{ { .X = -0.5f, -0.5f,  0.5f }, {.X =  0.0f,  0.0f,  1.0f}, { .U = 0.0f, 0.0f } },
+	{ { .X = -0.5f,  0.5f,  0.5f }, {.X = -1.0f,  0.0f,  0.0f}, { .U = 1.0f, 0.0f } },
+	{ { .X = -0.5f,  0.5f, -0.5f }, {.X = -1.0f,  0.0f,  0.0f}, { .U = 1.0f, 1.0f } },
+	{ { .X = -0.5f, -0.5f, -0.5f }, {.X = -1.0f,  0.0f,  0.0f}, { .U = 0.0f, 1.0f } },
+	{ { .X = -0.5f, -0.5f, -0.5f }, {.X = -1.0f,  0.0f,  0.0f}, { .U = 0.0f, 1.0f } },
+	{ { .X = -0.5f, -0.5f,  0.5f }, {.X = -1.0f,  0.0f,  0.0f}, { .U = 0.0f, 0.0f } },
+	{ { .X = -0.5f,  0.5f,  0.5f }, {.X = -1.0f,  0.0f,  0.0f}, { .U = 1.0f, 0.0f } },
+	{ { .X =  0.5f,  0.5f,  0.5f }, {.X =  1.0f,  0.0f,  0.0f}, { .U = 1.0f, 0.0f } },
+	{ { .X =  0.5f,  0.5f, -0.5f }, {.X =  1.0f,  0.0f,  0.0f}, { .U = 1.0f, 1.0f } },
+	{ { .X =  0.5f, -0.5f, -0.5f }, {.X =  1.0f,  0.0f,  0.0f}, { .U = 0.0f, 1.0f } },
+	{ { .X =  0.5f, -0.5f, -0.5f }, {.X =  1.0f,  0.0f,  0.0f}, { .U = 0.0f, 1.0f } },
+	{ { .X =  0.5f, -0.5f,  0.5f }, {.X =  1.0f,  0.0f,  0.0f}, { .U = 0.0f, 0.0f } },
+	{ { .X =  0.5f,  0.5f,  0.5f }, {.X =  1.0f,  0.0f,  0.0f}, { .U = 1.0f, 0.0f } },
+	{ { .X = -0.5f, -0.5f, -0.5f }, {.X =  0.0f, -1.0f,  0.0f}, { .U = 0.0f, 1.0f } },
+	{ { .X =  0.5f, -0.5f, -0.5f }, {.X =  0.0f, -1.0f,  0.0f}, { .U = 1.0f, 1.0f } },
+	{ { .X =  0.5f, -0.5f,  0.5f }, {.X =  0.0f, -1.0f,  0.0f}, { .U = 1.0f, 0.0f } },
+	{ { .X =  0.5f, -0.5f,  0.5f }, {.X =  0.0f, -1.0f,  0.0f}, { .U = 1.0f, 0.0f } },
+	{ { .X = -0.5f, -0.5f,  0.5f }, {.X =  0.0f, -1.0f,  0.0f}, { .U = 0.0f, 0.0f } },
+	{ { .X = -0.5f, -0.5f, -0.5f }, {.X =  0.0f, -1.0f,  0.0f}, { .U = 0.0f, 1.0f } },
+	{ { .X = -0.5f,  0.5f, -0.5f }, {.X =  0.0f,  1.0f,  0.0f}, { .U = 0.0f, 1.0f } },
+	{ { .X =  0.5f,  0.5f, -0.5f }, {.X =  0.0f,  1.0f,  0.0f}, { .U = 1.0f, 1.0f } },
+	{ { .X =  0.5f,  0.5f,  0.5f }, {.X =  0.0f,  1.0f,  0.0f}, { .U = 1.0f, 0.0f } },
+	{ { .X =  0.5f,  0.5f,  0.5f }, {.X =  0.0f,  1.0f,  0.0f}, { .U = 1.0f, 0.0f } },
+	{ { .X = -0.5f,  0.5f,  0.5f }, {.X =  0.0f,  1.0f,  0.0f}, { .U = 0.0f, 0.0f } },
+	{ { .X = -0.5f,  0.5f, -0.5f }, {.X =  0.0f,  1.0f,  0.0f}, { .U = 0.0f, 1.0f } },
 };
 
-static const HMM_Vec3 cube_positions[] = {
-	{ .X =  0.0f,  0.0f,   0.0f },
-	{ .X =  2.0f,  5.0f, -15.0f },
-	{ .X = -1.5f, -2.2f,  -2.5f },
-	{ .X = -3.8f, -2.0f, -12.3f },
-	{ .X =  2.4f, -0.4f,  -3.5f },
-	{ .X = -1.7f,  3.0f,  -7.5f },
-	{ .X =  1.3f, -2.0f,  -2.5f },
-	{ .X =  1.5f,  2.0f,  -2.5f },
-	{ .X =  1.5f,  0.2f,  -1.5f },
-	{ .X = -1.3f,  1.0f,  -1.5f },
-};
+typedef struct {
+	enum {
+		TEXTURE_DIFFUSE,
+		TEXTURE_SPECULAR,
+	} kind;
+	sg_view view;
+} Texture;
+
+typedef struct {
+	Vertex *vertices;
+	usize n_vertices;
+	INDEX_TYPE *indices;
+	usize n_indices;
+	Texture *textures;
+	usize n_textures;
+	sg_bindings bindings;
+	HMM_Mat4 model_matrix;
+	HMM_Mat4 normal_matrix;
+} Mesh;
+
+static void
+mesh_default_texture_views(
+	Mesh *mesh,
+	sg_image diffuse_img,
+	sg_image specular_img
+) {
+	mesh->n_textures = 2;
+	mesh->textures = malloc(sizeof(*mesh->textures) * mesh->n_textures);
+	mesh->textures[0] = (Texture){
+		.kind = TEXTURE_DIFFUSE,
+		.view = sg_make_view(&(sg_view_desc){
+			.texture = (sg_texture_view_desc){ .image = diffuse_img },
+			.label = "diffuse-texture",
+		}),
+	};
+	mesh->textures[1] = (Texture){
+		.kind = TEXTURE_SPECULAR,
+		.view = sg_make_view(&(sg_view_desc){
+			.texture = (sg_texture_view_desc){ .image = specular_img },
+			.label = "specular-texture",
+		}),
+	};
+}
+
+static void
+init_mesh_pipeline(
+	sg_pipeline *pipeline
+) {
+	*pipeline = sg_make_pipeline(&(sg_pipeline_desc){
+		.shader = sg_make_shader(scene_shader_desc(sg_query_backend())),
+		.layout = {
+			// attributes map to fields of `Vertex`
+			.attrs = {
+				[ATTR_scene_aPos].format = SG_VERTEXFORMAT_FLOAT3,
+				[ATTR_scene_aNormal].format = SG_VERTEXFORMAT_FLOAT3,
+				[ATTR_scene_aTexCoord].format = SG_VERTEXFORMAT_FLOAT2,
+			},
+			// computed (default) stride should equal `sizeof(Vertex)`
+		},
+		.label = "render-pipeline",
+		.depth = {
+			.write_enabled = true,
+			.compare = SG_COMPAREFUNC_LESS_EQUAL,
+		},
+		.index_type = SG_INDEXTYPE_UINT16, // should match `INDEX_TYPE`
+	});
+}
 
 typedef struct {
 	f32 pitch;
@@ -91,18 +196,14 @@ typedef struct {
 #define CAMERA_UP ((HMM_Vec3){ .X = 0.f, .Y = 1.f, .Z = 0.f })
 
 typedef struct {
-	sg_pipeline lighting_target_pipeline;
-	sg_pipeline lighting_source_pipeline;
-	sg_bindings lighting_target_bindings;
-	sg_bindings lighting_source_bindings;
-	sg_pass_action pass_action;
-	byte *image_data;
+	Mesh mesh;
+	sg_pipeline mesh_pipeline;
+	sg_pipeline light_cube_pipeline;
+	sg_bindings light_cube_bindings;
 	Camera camera;
 	f32 delta_time;
 	bool window_focused;
 } AppState;
-
-#define countof(x) (sizeof(x) / sizeof((x)[0]))
 
 static const DirLight_t dir_lights[] = {
 	{
@@ -156,6 +257,155 @@ static const PointLight_t point_lights[] = {
 	},
 };
 
+static void
+mesh_init_bindings(
+	Mesh *mesh
+) {
+	assert(mesh->n_textures < countof(mesh->bindings.views));
+
+	mesh->bindings = (sg_bindings){
+		.vertex_buffers[0] = sg_make_buffer(&(sg_buffer_desc){
+			.usage.vertex_buffer = true,
+			.usage.immutable = true,
+			.data = (sg_range){
+				.ptr = mesh->vertices,
+				.size = sizeof(*mesh->vertices) * mesh->n_vertices,
+			},
+			.label = "mesh-vertex-buffer",
+		}),
+		.index_buffer = sg_make_buffer(&(sg_buffer_desc){
+			.usage.index_buffer = true,
+			.usage.immutable = true,
+			.data = (sg_range){
+				.ptr = mesh->indices,
+				.size = sizeof(*mesh->indices) * mesh->n_indices,
+			},
+			.label = "mesh-index-buffer",
+		}),
+		.samplers[SMP_texSampler] = sg_make_sampler(&(sg_sampler_desc){
+			.min_filter = SG_FILTER_LINEAR,
+			.mag_filter = SG_FILTER_LINEAR,
+			.label = "texture-sampler"
+		}),
+		.views[VIEW_in_dir_lights] = sg_make_view(&(sg_view_desc){
+			.storage_buffer =  {
+				.buffer = sg_make_buffer(&(sg_buffer_desc){
+					.usage.storage_buffer = true,
+					.data = SG_RANGE(dir_lights),
+					.label = "directional-lights",
+				}),
+			},
+			.label = "directional-lights-storage",
+		}),
+		.views[VIEW_in_point_lights] = sg_make_view(&(sg_view_desc){
+			.storage_buffer =  {
+				.buffer = sg_make_buffer(&(sg_buffer_desc){
+					.usage.storage_buffer = true,
+					.data = SG_RANGE(point_lights),
+					.label = "point-lights",
+				}),
+			},
+			.label = "point-lights-storage",
+		}),
+	};
+	bool diffuse_found = false, specular_found = false;
+	for (usize i = 0; i < mesh->n_textures && i < countof(mesh->bindings.views); ++i) {
+		Texture *texture = &mesh->textures[i];
+		if (SG_RESOURCESTATE_VALID != sg_query_view_state(texture->view)) {
+			assert(false);
+			continue;
+		}
+		switch (texture->kind) {
+		case TEXTURE_DIFFUSE:
+			if (diffuse_found) {
+				// TODO(luke): textures should not be limited to only one slot
+				assert(false);
+				goto next;
+			}
+			mesh->bindings.views[VIEW_diffuseTexture] = texture->view;
+			diffuse_found = true;
+			break;
+		case TEXTURE_SPECULAR:
+			if (specular_found) {
+				// TODO(luke): textures should not be limited to only one slot
+				assert(false);
+				goto next;
+			}
+			mesh->bindings.views[VIEW_specularTexture] = texture->view;
+			specular_found = true;
+			break;
+		}
+next:;
+	}
+}
+
+static void load_image(const char *filename, bool flip, sg_image *img);
+
+static void
+load_obj_as_mesh(
+	Mesh *mesh,
+	const char *filename
+) {
+	fastObjMesh *read = fast_obj_read(filename);
+
+	assert(read->position_count < UINT16_MAX); // should match `INDEX_TYPE`
+	mesh->n_vertices = read->position_count;
+	mesh->n_indices  = read->face_count * 3;
+	mesh->vertices = malloc(sizeof(*mesh->vertices) * mesh->n_vertices);
+	mesh->indices  = malloc(sizeof(*mesh->indices) * mesh->n_indices);
+
+	for (usize i = 0; i < read->face_count * 3; ++i) {
+		fastObjIndex *index = read->indices + i;
+		mesh->indices[i] = (INDEX_TYPE)index->p;
+		mesh->vertices[index->p] = (Vertex){
+			.pos  = *(HMM_Vec3 *)(read->positions + index->p * 3),
+			.norm = *(HMM_Vec3 *)(read->normals   + index->n * 3),
+			.tex  = *(HMM_Vec2 *)(read->texcoords + index->t * 2),
+		};
+	}
+
+	fast_obj_destroy(read);
+}
+
+#if 0
+static void
+mesh_default_vertex_data(
+	Mesh *mesh
+) {
+	mesh->n_vertices = countof(cube_vertices);
+	mesh->vertices = cube_vertices;
+}
+#endif
+
+static void
+init_mesh(
+	Mesh *mesh
+) {
+	*mesh = (Mesh){0};
+	load_obj_as_mesh(mesh, "assets/backpack.obj");
+
+	sg_image diffuse_img, specular_img;
+	load_image("assets/backpack_diffuse.jpg", false, &diffuse_img);
+	load_image("assets/backpack_specular.jpg", false, &specular_img);
+
+	mesh_default_texture_views(mesh, diffuse_img, specular_img);
+	mesh_init_bindings(mesh);
+
+	mesh->model_matrix = HMM_Mul(HMM_Translate(HMM_V3(0.f, 0.f, 0.f)),
+	                             HMM_Rotate_RH(HMM_AngleDeg(0.f), HMM_V3(1.f, 0.3f, 0.5f)));
+	mesh->normal_matrix = HMM_Transpose(HMM_InvGeneral(mesh->model_matrix));
+}
+
+static void
+deinit_mesh(
+	Mesh *mesh
+) {
+	if (mesh->textures) {
+		free(mesh->textures);
+	}
+	mesh->textures = NULL;
+}
+
 static HMM_Vec3
 cam_direction_from_pitch_yaw(
 	float pitch,
@@ -169,12 +419,72 @@ cam_direction_from_pitch_yaw(
 	return HMM_Norm(dir);
 }
 
+static void
+draw_mesh(
+	sg_pipeline *pipeline,
+	Mesh *mesh,
+	Camera *camera
+) {
+	sg_apply_pipeline(*pipeline);
+	sg_apply_bindings(&mesh->bindings);
+
+	scene_material_t scene_material = {
+		.mat_shininess = 32.f,
+	};
+	sg_apply_uniforms(UB_scene_material, &SG_RANGE(scene_material));
+
+	HMM_Vec3 camera_front = cam_direction_from_pitch_yaw(camera->pitch, camera->yaw);
+	scene_vs_params_t scene_vs_params = {
+		.view       = HMM_LookAt_RH(camera->pos, HMM_Add(camera->pos, camera_front), CAMERA_UP),
+		.projection = HMM_Perspective_RH_NO(HMM_AngleDeg(camera->fov), (f32)WIDTH / (f32)HEIGHT, 0.1f, 100.f),
+		.model      = mesh->model_matrix,
+		.normal     = mesh->normal_matrix,
+	};
+	sg_apply_uniforms(UB_scene_vs_params, &SG_RANGE(scene_vs_params));
+
+	scene_fs_params_t scene_fs_params = {
+		.viewPos = camera->pos,
+		.n_dir_lights = countof(dir_lights),
+		.n_point_lights = countof(point_lights),
+	};
+	sg_apply_uniforms(UB_scene_fs_params, &SG_RANGE(scene_fs_params));
+
+	sg_draw(0, mesh->n_indices, 1);
+}
+
+static void
+draw_light_cubes(
+	sg_pipeline *pipeline,
+	sg_bindings *bindings,
+	Camera *camera
+) {
+	sg_apply_pipeline(*pipeline);
+	sg_apply_bindings(bindings);
+
+	HMM_Vec3 camera_front = cam_direction_from_pitch_yaw(camera->pitch, camera->yaw);
+	light_vs_params_t light_vs_params = {
+		.view       = HMM_LookAt_RH(camera->pos, HMM_Add(camera->pos, camera_front), CAMERA_UP),
+		.projection = HMM_Perspective_RH_NO(HMM_AngleDeg(camera->fov), (f32)WIDTH / (f32)HEIGHT, 0.1f, 100.f),
+	};
+	for (usize i = 0; i < countof(point_lights); ++i){
+		light_vs_params.model = HMM_Mul(HMM_Translate(point_lights[i].position),
+		                        HMM_Scale(HMM_V3(0.2f, 0.2f, 0.2f)));
+		sg_apply_uniforms(UB_light_vs_params, &SG_RANGE(light_vs_params));
+		light_fs_params_t light_fs_params = {
+			.light_color = point_lights[i].specular,
+		};
+		sg_apply_uniforms(UB_light_fs_params, &SG_RANGE(light_fs_params));
+		sg_draw(0, countof(cube_vertices), 1);
+	}
+}
+
 static
 void load_image(
 	const char *filename,
+	bool flip,
 	sg_image *img
 ) {
-	stbi_set_flip_vertically_on_load(true);
+	stbi_set_flip_vertically_on_load(flip);
 	int w, h, n_channels;
 	byte *img_data = stbi_load(filename, &w, &h, &n_channels, 4);
 	if (img_data) {
@@ -197,35 +507,10 @@ static void
 state_init(
 	AppState *state
 ) {
-	sg_image diffuse_img, specular_img;
-	load_image("assets/container2.png"         , &diffuse_img);
-	load_image("assets/container2_specular.png", &specular_img);
-
-	sg_buffer cube_vertex_bufffer = sg_make_buffer(&(sg_buffer_desc){
-		.usage.vertex_buffer = true,
-		.data = SG_RANGE(cube_vertices),
-		.label = "vertex-buffer",
-	});
-
 	*state = (AppState){
-		.lighting_target_pipeline = sg_make_pipeline(&(sg_pipeline_desc){
-			.shader = sg_make_shader(scene_shader_desc(sg_query_backend())),
-			.layout = {
-				.attrs = {
-					[ATTR_scene_aPos].format = SG_VERTEXFORMAT_FLOAT3,
-					[ATTR_scene_aTexCoord].format = SG_VERTEXFORMAT_FLOAT2,
-					[ATTR_scene_aNormal].format = SG_VERTEXFORMAT_FLOAT3,
-				},
-			},
-			.label = "lighting-target-pipeline",
-			.depth = {
-				.write_enabled = true,
-				.compare = SG_COMPAREFUNC_LESS_EQUAL,
-			}
-		}),
-		.lighting_source_pipeline = sg_make_pipeline(&(sg_pipeline_desc){
+		.light_cube_pipeline = sg_make_pipeline(&(sg_pipeline_desc){
 			.shader = sg_make_shader(light_shader_desc(sg_query_backend())),
-			.layout = {
+			.layout = (sg_vertex_layout_state){
 				.attrs = {
 					[ATTR_light_aPos].format = SG_VERTEXFORMAT_FLOAT3,
 				},
@@ -233,58 +518,29 @@ state_init(
 					[ATTR_light_aPos].stride = sizeof(Vertex),
 				},
 			},
-			.label = "lighting-source-pipeline",
-			.depth = {
+			.depth = (sg_depth_state){
 				.write_enabled = true,
 				.compare = SG_COMPAREFUNC_LESS_EQUAL,
-			}
-		}),
-		.lighting_target_bindings.vertex_buffers[0] = cube_vertex_bufffer,
-		.lighting_target_bindings.views[VIEW_diffuseTexture] = sg_make_view(&(sg_view_desc){
-			.texture = {.image = diffuse_img },
-			.label = "diffuse-texture",
-		}),
-		.lighting_target_bindings.views[VIEW_specularTexture] = sg_make_view(&(sg_view_desc){
-			.texture = {.image = specular_img },
-			.label = "specular-texture",
-		}),
-		.lighting_target_bindings.views[VIEW_in_dir_lights] = sg_make_view(&(sg_view_desc){
-			.storage_buffer =  {
-				.buffer = sg_make_buffer(&(sg_buffer_desc){
-					.usage.storage_buffer = true,
-					.data = SG_RANGE(dir_lights),
-					.label = "directional-lights",
-				}),
 			},
-			.label = "directional-lights-storage",
+			.label = "light-cube-pipeline",
 		}),
-		.lighting_target_bindings.views[VIEW_in_point_lights] = sg_make_view(&(sg_view_desc){
-			.storage_buffer =  {
-				.buffer = sg_make_buffer(&(sg_buffer_desc){
-					.usage.storage_buffer = true,
-					.data = SG_RANGE(point_lights),
-					.label = "point-lights",
-				}),
-			},
-			.label = "point-lights-storage",
+		.light_cube_bindings.vertex_buffers[0] = sg_make_buffer(&(sg_buffer_desc){
+			.usage.vertex_buffer = true,
+			.usage.immutable = true,
+			.data = SG_RANGE(cube_vertices),
+			.label = "cube-vertex-buffer",
 		}),
-		.lighting_target_bindings.samplers[SMP_boxSampler] = sg_make_sampler(&(sg_sampler_desc){
-			.min_filter = SG_FILTER_LINEAR,
-			.mag_filter = SG_FILTER_LINEAR,
-			.label = "box-sampler"
-		}),
-		.lighting_source_bindings.vertex_buffers[0] = cube_vertex_bufffer,
-		.pass_action = (sg_pass_action) {
-			.colors[0] = {
-				.load_action = SG_LOADACTION_CLEAR,
-				.clear_value = { 0.1f, 0.1f, 0.1f, 1.0f },
-			}
+		.camera = (Camera){
+			.fov = FOV_MAX,
+			.pitch = 0.f,
+			.yaw = -90.f,
+			.pos = HMM_V3(0.f, 0.0f,  3.f),
 		},
-		.camera.yaw = -90.f,
-		.camera.pos = HMM_V3(0.f, 0.f,  3.f),
-		.camera.fov = FOV_MAX,
 		.window_focused = true,
 	};
+
+	init_mesh(&state->mesh);
+	init_mesh_pipeline(&state->mesh_pipeline);
 }
 
 static void
@@ -299,56 +555,17 @@ app_frame(
 	last_frame = current_frame;
 
 	sg_begin_pass(&(sg_pass){
-		.action = state->pass_action,
+		.action = (sg_pass_action) {
+			.colors[0] = {
+				.load_action = SG_LOADACTION_CLEAR,
+				.clear_value = { 0.1f, 0.1f, 0.1f, 1.0f },
+			}
+		},
 		.swapchain = sglue_swapchain()
 	});
 
-	/* Draw textured boxes */
-	sg_apply_pipeline(state->lighting_target_pipeline);
-	sg_apply_bindings(&state->lighting_target_bindings);
-
-	scene_material_t scene_material = {
-		.mat_shininess = 32.f,
-	};
-	sg_apply_uniforms(UB_scene_material, &SG_RANGE(scene_material));
-
-	HMM_Vec3 camera_front = cam_direction_from_pitch_yaw(state->camera.pitch, state->camera.yaw);
-	scene_vs_params_t scene_vs_params = {
-		.view       = HMM_LookAt_RH(state->camera.pos, HMM_Add(state->camera.pos, camera_front), CAMERA_UP),
-		.projection = HMM_Perspective_RH_NO(HMM_AngleDeg(state->camera.fov), (f32)WIDTH / (f32)HEIGHT, 0.1f, 100.f),
-	};
-	for (usize i = 0; i < countof(cube_positions); ++i) {
-		scene_vs_params.model = HMM_Mul(HMM_Translate(cube_positions[i]),
-		                                HMM_Rotate_RH(HMM_AngleDeg(20.f * i), HMM_V3(1.f, 0.3f, 0.5f)));
-		scene_vs_params.normal = HMM_Transpose(HMM_InvGeneral(scene_vs_params.model));
-		sg_apply_uniforms(UB_scene_vs_params, &SG_RANGE(scene_vs_params));
-		scene_fs_params_t scene_fs_params = {
-			.viewPos = state->camera.pos,
-			.n_dir_lights = countof(dir_lights),
-			.n_point_lights = countof(point_lights),
-		};
-		sg_apply_uniforms(UB_scene_fs_params, &SG_RANGE(scene_fs_params));
-		sg_draw(0, countof(cube_vertices), 1);
-	}
-
-	/* Draw point light boxes */
-	sg_apply_pipeline(state->lighting_source_pipeline);
-	sg_apply_bindings(&state->lighting_source_bindings);
-
-	light_vs_params_t light_vs_params = {
-		.view = scene_vs_params.view,
-		.projection = scene_vs_params.projection,
-	};
-	for (usize i = 0; i < countof(point_lights); ++i){
-		light_vs_params.model = HMM_Mul(HMM_Translate(point_lights[i].position),
-		                        HMM_Scale(HMM_V3(0.2f, 0.2f, 0.2f)));
-		sg_apply_uniforms(UB_light_vs_params, &SG_RANGE(light_vs_params));
-		light_fs_params_t light_fs_params = {
-			.light_color = point_lights[i].specular,
-		};
-		sg_apply_uniforms(UB_light_fs_params, &SG_RANGE(light_fs_params));
-		sg_draw(0, countof(cube_vertices), 1);
-	}
+	draw_mesh(&state->mesh_pipeline, &state->mesh, &state->camera);
+	draw_light_cubes(&state->light_cube_pipeline, &state->light_cube_bindings, &state->camera);
 
 	sg_end_pass();
 	sg_commit();
@@ -423,7 +640,9 @@ static void
 app_cleanup(
 	void *state_
 ) {
+	AppState *state = state_;
 	sg_shutdown();
+	deinit_mesh(&state->mesh);
 	free(state_);
 }
 

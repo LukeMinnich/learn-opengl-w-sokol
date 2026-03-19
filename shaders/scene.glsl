@@ -12,8 +12,8 @@ layout(binding=0) uniform scene_vs_params {
 	mat4 normal;
 };
 in vec3 aPos;
-in vec2 aTexCoord;
 in vec3 aNormal;
+in vec2 aTexCoord;
 
 out vec2 TexCoord;
 out vec3 FragPos;
@@ -30,7 +30,7 @@ void main(
 @end
 
 @fs scene_fs
-layout(binding=0) uniform sampler boxSampler; // there only needs to be one of these for many
+layout(binding=0) uniform sampler texSampler; // there only needs to be one of these for many
                                               // material texture lookups
 layout(binding=1) uniform scene_fs_params {
 	vec3 viewPos;
@@ -99,8 +99,8 @@ CalcDirLight(
 ) {
 	vec3 lightDir = normalize(-light.direction);
 	// sample texture for diffuse/ambient
-	vec3 sampled_diffuse  = vec3(texture(sampler2D(diffuseTexture , boxSampler), TexCoord));
-	vec3 sampled_specular = vec3(texture(sampler2D(specularTexture, boxSampler), TexCoord));
+	vec3 sampled_diffuse  = vec3(texture(sampler2D(diffuseTexture , texSampler), TexCoord));
+	vec3 sampled_specular = vec3(texture(sampler2D(specularTexture, texSampler), TexCoord));
 	// ambient
 	vec3 ambient = light.ambient * sampled_diffuse;
 	// diffuse

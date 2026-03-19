@@ -53,7 +53,7 @@ $(OBJECTS): $(TMP)/%.o : $(SRC)/%.c
 	$(CC) -c $(CPPFLAGS) $(CFLAGS) $< -o $@
 
 $(TMP)/sokol.o: $(SRC)/sokol.m
-	$(CC) -c $(CPPFLAGS) $(filter-out -Wswitch-enum, $(CFLAGS)) -DSOKOL_METAL -fobjc-arc $< -o $@
+	$(CC) -c $(CPPFLAGS) $(filter-out -Wswitch-enum, $(CFLAGS)) -fobjc-arc $< -o $@
 
 clean:
 	rm -rf $(BIN)
