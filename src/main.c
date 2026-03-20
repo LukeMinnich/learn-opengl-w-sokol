@@ -120,6 +120,8 @@ static const Vertex cube_vertices[] = {
 };
 
 #define HALF_GRID 1000.f
+#define FAR       1000.f
+#define NEAR        0.1f
 
 static const Vertex unit_quad_horiz_vertices[] = {
 	{ { .X = -HALF_GRID, 0.f, -HALF_GRID }, {0}, {0} },
@@ -437,6 +439,14 @@ cam_direction_from_pitch_yaw(
 	return HMM_Norm(dir);
 }
 
+static HMM_Mat4
+projection_matrix(
+	Camera *camera
+) {
+	f32 aspect_ratio = sapp_widthf() / sapp_heightf();
+	return HMM_Perspective_RH_NO(HMM_AngleDeg(camera->fov), aspect_ratio, NEAR, FAR);
+}
+
 static void
 draw_mesh(
 	sg_pipeline *pipeline,
@@ -454,7 +464,7 @@ draw_mesh(
 	HMM_Vec3 camera_front = cam_direction_from_pitch_yaw(camera->pitch, camera->yaw);
 	scene_vs_params_t scene_vs_params = {
 		.view       = HMM_LookAt_RH(camera->pos, HMM_Add(camera->pos, camera_front), CAMERA_UP),
-		.projection = HMM_Perspective_RH_NO(HMM_AngleDeg(camera->fov), (f32)WIDTH / (f32)HEIGHT, 0.1f, 100.f),
+		.projection = projection_matrix(camera),
 		.model      = mesh->model_matrix,
 		.normal     = mesh->normal_matrix,
 	};
@@ -482,7 +492,7 @@ draw_light_cubes(
 	HMM_Vec3 camera_front = cam_direction_from_pitch_yaw(camera->pitch, camera->yaw);
 	light_vs_params_t light_vs_params = {
 		.view       = HMM_LookAt_RH(camera->pos, HMM_Add(camera->pos, camera_front), CAMERA_UP),
-		.projection = HMM_Perspective_RH_NO(HMM_AngleDeg(camera->fov), (f32)WIDTH / (f32)HEIGHT, 0.1f, 100.f),
+		.projection = projection_matrix(camera),
 	};
 	for (usize i = 0; i < countof(point_lights); ++i){
 		light_vs_params.model = HMM_Mul(HMM_Translate(point_lights[i].position),
@@ -508,7 +518,7 @@ draw_horiz_grid(
 	HMM_Vec3 camera_front = cam_direction_from_pitch_yaw(camera->pitch, camera->yaw);
 	grid_vs_params_t grid_vs_params = {
 		.view       = HMM_LookAt_RH(camera->pos, HMM_Add(camera->pos, camera_front), CAMERA_UP),
-		.projection = HMM_Perspective_RH_NO(HMM_AngleDeg(camera->fov), (f32)WIDTH / (f32)HEIGHT, 0.1f, 1000.f),
+		.projection = projection_matrix(camera),
 		/* Keep the grid centered on the camera X-Z, so it feels "infinite". */
 		.model      = HMM_Translate(HMM_V3(camera->pos.X, 0.f, camera->pos.Z)),
 	};
