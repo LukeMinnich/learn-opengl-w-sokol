@@ -220,6 +220,7 @@ typedef struct {
 	Camera camera;
 	f32 delta_time;
 	bool window_focused;
+	bool animation_paused;
 } AppState;
 
 static const DirLight_t dir_lights[] = {
@@ -620,6 +621,7 @@ state_init(
 			.pos = HMM_V3(0.f, 2.0f,  10.f),
 		},
 		.window_focused = true,
+		.animation_paused = false,
 	};
 
 	init_mesh(&state->mesh);
@@ -634,10 +636,15 @@ app_frame(
 
 	uint64_t current_frame = stm_now();
 	static uint64_t last_frame = 0;
-	state->delta_time = stm_sec(stm_diff(current_frame, last_frame));
+	static uint64_t time_paused = 0;
+	uint64_t diff = stm_diff(current_frame, last_frame);
+	if (state->animation_paused) {
+		time_paused += diff;
+	}
+	state->delta_time = stm_sec(diff);
 	last_frame = current_frame;
 
-	float theta = stm_sec(stm_now()) * 100.;
+	float theta = stm_sec(current_frame - time_paused) * 100.;
 	state->mesh.model_matrix = HMM_Mul(HMM_Translate(HMM_V3(0.f, 0.f, 0.f)),
 	                                   HMM_Rotate_RH(HMM_AngleDeg(-theta), HMM_V3(0.f, 1.0f, 0.0f)));
 	state->mesh.normal_matrix = HMM_Transpose(HMM_InvGeneral(state->mesh.model_matrix));
@@ -698,6 +705,12 @@ app_handle_event(
 		if ('d' == event->char_code) {
 			HMM_Vec3 delta = HMM_Mul(HMM_Norm(HMM_Cross(camera_front, CAMERA_UP)), camera_speed);
 			state->camera.pos = HMM_Add(state->camera.pos, delta);
+		}
+	}
+	if (   SAPP_EVENTTYPE_KEY_DOWN == event->type
+	    && !event->key_repeat) {
+		if (SAPP_KEYCODE_SPACE == event->key_code) {
+			state->animation_paused = !state->animation_paused;
 		}
 	}
 	if (SAPP_EVENTTYPE_MOUSE_MOVE == event->type) {
