@@ -217,6 +217,8 @@ init_mesh_pipeline(
 			.write_enabled = true,
 			.compare = SG_COMPAREFUNC_LESS,
 		},
+		.cull_mode = SG_CULLMODE_BACK,
+		.face_winding = SG_FACEWINDING_CCW,
 		.index_type = SG_INDEXTYPE_UINT16, // should match `INDEX_TYPE`
 		.label = "mesh-pipeline",
 	});
@@ -254,6 +256,8 @@ init_mesh_outline_pipeline(
 			.write_enabled = true,
 			.compare = SG_COMPAREFUNC_ALWAYS,
 		},
+		.cull_mode = SG_CULLMODE_BACK,
+		.face_winding = SG_FACEWINDING_CCW,
 		.index_type = SG_INDEXTYPE_UINT16, // should match `INDEX_TYPE`
 		.label = "mesh-outline-pipeline",
 	});
