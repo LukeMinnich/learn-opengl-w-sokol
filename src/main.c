@@ -366,6 +366,8 @@ mesh_init_bindings(
 		.samplers[SMP_texSampler] = sg_make_sampler(&(sg_sampler_desc){
 			.min_filter = SG_FILTER_LINEAR,
 			.mag_filter = SG_FILTER_LINEAR,
+			.wrap_u = SG_WRAP_CLAMP_TO_EDGE,
+			.wrap_v = SG_WRAP_CLAMP_TO_EDGE,
 			.label = "texture-sampler"
 		}),
 		.views[VIEW_in_dir_lights] = sg_make_view(&(sg_view_desc){
