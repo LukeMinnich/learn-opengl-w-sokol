@@ -243,6 +243,11 @@ typedef union HMM_Vec2
 
     struct
     {
+        float S, T;
+    };
+
+    struct
+    {
         float Left, Right;
     };
 

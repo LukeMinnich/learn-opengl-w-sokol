@@ -1,3 +1,4 @@
+#include "grid.glsl.h"
 #include "light.glsl.h"
 #include "scene.glsl.h"
 
@@ -79,43 +80,57 @@ typedef struct {
 	HMM_Vec2 tex;
 } Vertex;
 
-Vertex cube_vertices[] = {
-	{ { .X = -0.5f, -0.5f, -0.5f }, {.X =  0.0f,  0.0f, -1.0f}, { .U = 0.0f, 0.0f } },
-	{ { .X =  0.5f, -0.5f, -0.5f }, {.X =  0.0f,  0.0f, -1.0f}, { .U = 1.0f, 0.0f } },
-	{ { .X =  0.5f,  0.5f, -0.5f }, {.X =  0.0f,  0.0f, -1.0f}, { .U = 1.0f, 1.0f } },
-	{ { .X =  0.5f,  0.5f, -0.5f }, {.X =  0.0f,  0.0f, -1.0f}, { .U = 1.0f, 1.0f } },
-	{ { .X = -0.5f,  0.5f, -0.5f }, {.X =  0.0f,  0.0f, -1.0f}, { .U = 0.0f, 1.0f } },
-	{ { .X = -0.5f, -0.5f, -0.5f }, {.X =  0.0f,  0.0f, -1.0f}, { .U = 0.0f, 0.0f } },
-	{ { .X = -0.5f, -0.5f,  0.5f }, {.X =  0.0f,  0.0f,  1.0f}, { .U = 0.0f, 0.0f } },
-	{ { .X =  0.5f, -0.5f,  0.5f }, {.X =  0.0f,  0.0f,  1.0f}, { .U = 1.0f, 0.0f } },
-	{ { .X =  0.5f,  0.5f,  0.5f }, {.X =  0.0f,  0.0f,  1.0f}, { .U = 1.0f, 1.0f } },
-	{ { .X =  0.5f,  0.5f,  0.5f }, {.X =  0.0f,  0.0f,  1.0f}, { .U = 1.0f, 1.0f } },
-	{ { .X = -0.5f,  0.5f,  0.5f }, {.X =  0.0f,  0.0f,  1.0f}, { .U = 0.0f, 1.0f } },
-	{ { .X = -0.5f, -0.5f,  0.5f }, {.X =  0.0f,  0.0f,  1.0f}, { .U = 0.0f, 0.0f } },
-	{ { .X = -0.5f,  0.5f,  0.5f }, {.X = -1.0f,  0.0f,  0.0f}, { .U = 1.0f, 0.0f } },
-	{ { .X = -0.5f,  0.5f, -0.5f }, {.X = -1.0f,  0.0f,  0.0f}, { .U = 1.0f, 1.0f } },
-	{ { .X = -0.5f, -0.5f, -0.5f }, {.X = -1.0f,  0.0f,  0.0f}, { .U = 0.0f, 1.0f } },
-	{ { .X = -0.5f, -0.5f, -0.5f }, {.X = -1.0f,  0.0f,  0.0f}, { .U = 0.0f, 1.0f } },
-	{ { .X = -0.5f, -0.5f,  0.5f }, {.X = -1.0f,  0.0f,  0.0f}, { .U = 0.0f, 0.0f } },
-	{ { .X = -0.5f,  0.5f,  0.5f }, {.X = -1.0f,  0.0f,  0.0f}, { .U = 1.0f, 0.0f } },
-	{ { .X =  0.5f,  0.5f,  0.5f }, {.X =  1.0f,  0.0f,  0.0f}, { .U = 1.0f, 0.0f } },
-	{ { .X =  0.5f,  0.5f, -0.5f }, {.X =  1.0f,  0.0f,  0.0f}, { .U = 1.0f, 1.0f } },
-	{ { .X =  0.5f, -0.5f, -0.5f }, {.X =  1.0f,  0.0f,  0.0f}, { .U = 0.0f, 1.0f } },
-	{ { .X =  0.5f, -0.5f, -0.5f }, {.X =  1.0f,  0.0f,  0.0f}, { .U = 0.0f, 1.0f } },
-	{ { .X =  0.5f, -0.5f,  0.5f }, {.X =  1.0f,  0.0f,  0.0f}, { .U = 0.0f, 0.0f } },
-	{ { .X =  0.5f,  0.5f,  0.5f }, {.X =  1.0f,  0.0f,  0.0f}, { .U = 1.0f, 0.0f } },
-	{ { .X = -0.5f, -0.5f, -0.5f }, {.X =  0.0f, -1.0f,  0.0f}, { .U = 0.0f, 1.0f } },
-	{ { .X =  0.5f, -0.5f, -0.5f }, {.X =  0.0f, -1.0f,  0.0f}, { .U = 1.0f, 1.0f } },
-	{ { .X =  0.5f, -0.5f,  0.5f }, {.X =  0.0f, -1.0f,  0.0f}, { .U = 1.0f, 0.0f } },
-	{ { .X =  0.5f, -0.5f,  0.5f }, {.X =  0.0f, -1.0f,  0.0f}, { .U = 1.0f, 0.0f } },
-	{ { .X = -0.5f, -0.5f,  0.5f }, {.X =  0.0f, -1.0f,  0.0f}, { .U = 0.0f, 0.0f } },
-	{ { .X = -0.5f, -0.5f, -0.5f }, {.X =  0.0f, -1.0f,  0.0f}, { .U = 0.0f, 1.0f } },
-	{ { .X = -0.5f,  0.5f, -0.5f }, {.X =  0.0f,  1.0f,  0.0f}, { .U = 0.0f, 1.0f } },
-	{ { .X =  0.5f,  0.5f, -0.5f }, {.X =  0.0f,  1.0f,  0.0f}, { .U = 1.0f, 1.0f } },
-	{ { .X =  0.5f,  0.5f,  0.5f }, {.X =  0.0f,  1.0f,  0.0f}, { .U = 1.0f, 0.0f } },
-	{ { .X =  0.5f,  0.5f,  0.5f }, {.X =  0.0f,  1.0f,  0.0f}, { .U = 1.0f, 0.0f } },
-	{ { .X = -0.5f,  0.5f,  0.5f }, {.X =  0.0f,  1.0f,  0.0f}, { .U = 0.0f, 0.0f } },
-	{ { .X = -0.5f,  0.5f, -0.5f }, {.X =  0.0f,  1.0f,  0.0f}, { .U = 0.0f, 1.0f } },
+static const Vertex cube_vertices[] = {
+	{ { .X = -0.5f, -0.5f, -0.5f }, { .X =  0.0f,  0.0f, -1.0f}, { .S = 0.0f, 0.0f } },
+	{ { .X =  0.5f, -0.5f, -0.5f }, { .X =  0.0f,  0.0f, -1.0f}, { .S = 1.0f, 0.0f } },
+	{ { .X =  0.5f,  0.5f, -0.5f }, { .X =  0.0f,  0.0f, -1.0f}, { .S = 1.0f, 1.0f } },
+	{ { .X =  0.5f,  0.5f, -0.5f }, { .X =  0.0f,  0.0f, -1.0f}, { .S = 1.0f, 1.0f } },
+	{ { .X = -0.5f,  0.5f, -0.5f }, { .X =  0.0f,  0.0f, -1.0f}, { .S = 0.0f, 1.0f } },
+	{ { .X = -0.5f, -0.5f, -0.5f }, { .X =  0.0f,  0.0f, -1.0f}, { .S = 0.0f, 0.0f } },
+	{ { .X = -0.5f, -0.5f,  0.5f }, { .X =  0.0f,  0.0f,  1.0f}, { .S = 0.0f, 0.0f } },
+	{ { .X =  0.5f, -0.5f,  0.5f }, { .X =  0.0f,  0.0f,  1.0f}, { .S = 1.0f, 0.0f } },
+	{ { .X =  0.5f,  0.5f,  0.5f }, { .X =  0.0f,  0.0f,  1.0f}, { .S = 1.0f, 1.0f } },
+	{ { .X =  0.5f,  0.5f,  0.5f }, { .X =  0.0f,  0.0f,  1.0f}, { .S = 1.0f, 1.0f } },
+	{ { .X = -0.5f,  0.5f,  0.5f }, { .X =  0.0f,  0.0f,  1.0f}, { .S = 0.0f, 1.0f } },
+	{ { .X = -0.5f, -0.5f,  0.5f }, { .X =  0.0f,  0.0f,  1.0f}, { .S = 0.0f, 0.0f } },
+	{ { .X = -0.5f,  0.5f,  0.5f }, { .X = -1.0f,  0.0f,  0.0f}, { .S = 1.0f, 0.0f } },
+	{ { .X = -0.5f,  0.5f, -0.5f }, { .X = -1.0f,  0.0f,  0.0f}, { .S = 1.0f, 1.0f } },
+	{ { .X = -0.5f, -0.5f, -0.5f }, { .X = -1.0f,  0.0f,  0.0f}, { .S = 0.0f, 1.0f } },
+	{ { .X = -0.5f, -0.5f, -0.5f }, { .X = -1.0f,  0.0f,  0.0f}, { .S = 0.0f, 1.0f } },
+	{ { .X = -0.5f, -0.5f,  0.5f }, { .X = -1.0f,  0.0f,  0.0f}, { .S = 0.0f, 0.0f } },
+	{ { .X = -0.5f,  0.5f,  0.5f }, { .X = -1.0f,  0.0f,  0.0f}, { .S = 1.0f, 0.0f } },
+	{ { .X =  0.5f,  0.5f,  0.5f }, { .X =  1.0f,  0.0f,  0.0f}, { .S = 1.0f, 0.0f } },
+	{ { .X =  0.5f,  0.5f, -0.5f }, { .X =  1.0f,  0.0f,  0.0f}, { .S = 1.0f, 1.0f } },
+	{ { .X =  0.5f, -0.5f, -0.5f }, { .X =  1.0f,  0.0f,  0.0f}, { .S = 0.0f, 1.0f } },
+	{ { .X =  0.5f, -0.5f, -0.5f }, { .X =  1.0f,  0.0f,  0.0f}, { .S = 0.0f, 1.0f } },
+	{ { .X =  0.5f, -0.5f,  0.5f }, { .X =  1.0f,  0.0f,  0.0f}, { .S = 0.0f, 0.0f } },
+	{ { .X =  0.5f,  0.5f,  0.5f }, { .X =  1.0f,  0.0f,  0.0f}, { .S = 1.0f, 0.0f } },
+	{ { .X = -0.5f, -0.5f, -0.5f }, { .X =  0.0f, -1.0f,  0.0f}, { .S = 0.0f, 1.0f } },
+	{ { .X =  0.5f, -0.5f, -0.5f }, { .X =  0.0f, -1.0f,  0.0f}, { .S = 1.0f, 1.0f } },
+	{ { .X =  0.5f, -0.5f,  0.5f }, { .X =  0.0f, -1.0f,  0.0f}, { .S = 1.0f, 0.0f } },
+	{ { .X =  0.5f, -0.5f,  0.5f }, { .X =  0.0f, -1.0f,  0.0f}, { .S = 1.0f, 0.0f } },
+	{ { .X = -0.5f, -0.5f,  0.5f }, { .X =  0.0f, -1.0f,  0.0f}, { .S = 0.0f, 0.0f } },
+	{ { .X = -0.5f, -0.5f, -0.5f }, { .X =  0.0f, -1.0f,  0.0f}, { .S = 0.0f, 1.0f } },
+	{ { .X = -0.5f,  0.5f, -0.5f }, { .X =  0.0f,  1.0f,  0.0f}, { .S = 0.0f, 1.0f } },
+	{ { .X =  0.5f,  0.5f, -0.5f }, { .X =  0.0f,  1.0f,  0.0f}, { .S = 1.0f, 1.0f } },
+	{ { .X =  0.5f,  0.5f,  0.5f }, { .X =  0.0f,  1.0f,  0.0f}, { .S = 1.0f, 0.0f } },
+	{ { .X =  0.5f,  0.5f,  0.5f }, { .X =  0.0f,  1.0f,  0.0f}, { .S = 1.0f, 0.0f } },
+	{ { .X = -0.5f,  0.5f,  0.5f }, { .X =  0.0f,  1.0f,  0.0f}, { .S = 0.0f, 0.0f } },
+	{ { .X = -0.5f,  0.5f, -0.5f }, { .X =  0.0f,  1.0f,  0.0f}, { .S = 0.0f, 1.0f } },
+};
+
+#define HALF_GRID 1000.f
+
+static const Vertex unit_quad_horiz_vertices[] = {
+	{ { .X = -HALF_GRID, 0.f, -HALF_GRID }, {0}, {0} },
+	{ { .X =  HALF_GRID, 0.f, -HALF_GRID }, {0}, {0} },
+	{ { .X = -HALF_GRID, 0.f,  HALF_GRID }, {0}, {0} },
+	{ { .X =  HALF_GRID, 0.f,  HALF_GRID }, {0}, {0} },
+};
+
+static const INDEX_TYPE unit_quad_horiz[] = {
+	0, 1, 2,
+	1, 3, 2,
 };
 
 typedef struct {
@@ -180,7 +195,7 @@ init_mesh_pipeline(
 		.label = "render-pipeline",
 		.depth = {
 			.write_enabled = true,
-			.compare = SG_COMPAREFUNC_LESS_EQUAL,
+			.compare = SG_COMPAREFUNC_LESS,
 		},
 		.index_type = SG_INDEXTYPE_UINT16, // should match `INDEX_TYPE`
 	});
@@ -200,6 +215,8 @@ typedef struct {
 	sg_pipeline mesh_pipeline;
 	sg_pipeline light_cube_pipeline;
 	sg_bindings light_cube_bindings;
+	sg_pipeline horiz_grid_pipeline;
+	sg_bindings horiz_grid_bindings;
 	Camera camera;
 	f32 delta_time;
 	bool window_focused;
@@ -478,6 +495,31 @@ draw_light_cubes(
 	}
 }
 
+static void
+draw_horiz_grid(
+	sg_pipeline *pipeline,
+	sg_bindings *bindings,
+	Camera *camera
+) {
+	sg_apply_pipeline(*pipeline);
+	sg_apply_bindings(bindings);
+
+	HMM_Vec3 camera_front = cam_direction_from_pitch_yaw(camera->pitch, camera->yaw);
+	grid_vs_params_t grid_vs_params = {
+		.view       = HMM_LookAt_RH(camera->pos, HMM_Add(camera->pos, camera_front), CAMERA_UP),
+		.projection = HMM_Perspective_RH_NO(HMM_AngleDeg(camera->fov), (f32)WIDTH / (f32)HEIGHT, 0.1f, 1000.f),
+		/* Keep the grid centered on the camera X-Z, so it feels "infinite". */
+		.model      = HMM_Translate(HMM_V3(camera->pos.X, 0.f, camera->pos.Z)),
+	};
+
+	sg_apply_uniforms(UB_grid_vs_params, &SG_RANGE(grid_vs_params));
+	grid_fs_params_t grid_fs_params = {
+		.grid_color = HMM_V3(0.5f, 0.5f, 0.5f),
+	};
+	sg_apply_uniforms(UB_grid_fs_params, &SG_RANGE(grid_fs_params));
+	sg_draw(0, countof(unit_quad_horiz), 1);
+}
+
 static
 void load_image(
 	const char *filename,
@@ -520,7 +562,7 @@ state_init(
 			},
 			.depth = (sg_depth_state){
 				.write_enabled = true,
-				.compare = SG_COMPAREFUNC_LESS_EQUAL,
+				.compare = SG_COMPAREFUNC_LESS,
 			},
 			.label = "light-cube-pipeline",
 		}),
@@ -530,11 +572,52 @@ state_init(
 			.data = SG_RANGE(cube_vertices),
 			.label = "cube-vertex-buffer",
 		}),
+		.horiz_grid_pipeline = sg_make_pipeline(&(sg_pipeline_desc){
+			.shader = sg_make_shader(grid_shader_desc(sg_query_backend())),
+			.layout = (sg_vertex_layout_state){
+				.attrs = {
+					[ATTR_grid_aPos].format = SG_VERTEXFORMAT_FLOAT3,
+				},
+				.buffers = {
+					[ATTR_grid_aPos].stride = sizeof(Vertex),
+				},
+			},
+			.depth = (sg_depth_state){
+				.write_enabled = true,
+				.compare = SG_COMPAREFUNC_LESS,
+			},
+			.color_count = 1,
+			.colors[0] = {
+				.blend = {
+					.enabled = true,
+					.src_factor_rgb = SG_BLENDFACTOR_SRC_ALPHA,
+					.dst_factor_rgb = SG_BLENDFACTOR_ONE_MINUS_SRC_ALPHA,
+					.op_rgb = SG_BLENDOP_ADD,
+					.src_factor_alpha = SG_BLENDFACTOR_ONE,
+					.dst_factor_alpha = SG_BLENDFACTOR_ZERO,
+					.op_alpha = SG_BLENDOP_ADD,
+				},
+			},
+			.index_type = SG_INDEXTYPE_UINT16, // should match `INDEX_TYPE`
+			.label = "grid-pipeline",
+		}),
+		.horiz_grid_bindings.vertex_buffers[0] = sg_make_buffer(&(sg_buffer_desc){
+			.usage.vertex_buffer = true,
+			.usage.immutable = true,
+			.data = SG_RANGE(unit_quad_horiz_vertices),
+			.label = "grid-vertex-buffer",
+		}),
+		.horiz_grid_bindings.index_buffer = sg_make_buffer(&(sg_buffer_desc){
+			.usage.index_buffer = true,
+			.usage.immutable = true,
+			.data = SG_RANGE(unit_quad_horiz),
+			.label = "grid-index-buffer",
+		}),
 		.camera = (Camera){
 			.fov = FOV_MAX,
-			.pitch = 0.f,
+			.pitch = -10.f,
 			.yaw = -90.f,
-			.pos = HMM_V3(0.f, 0.0f,  3.f),
+			.pos = HMM_V3(0.f, 2.0f,  10.f),
 		},
 		.window_focused = true,
 	};
@@ -554,6 +637,11 @@ app_frame(
 	state->delta_time = stm_sec(stm_diff(current_frame, last_frame));
 	last_frame = current_frame;
 
+	float theta = stm_sec(stm_now()) * 100.;
+	state->mesh.model_matrix = HMM_Mul(HMM_Translate(HMM_V3(0.f, 0.f, 0.f)),
+	                                   HMM_Rotate_RH(HMM_AngleDeg(-theta), HMM_V3(0.f, 1.0f, 0.0f)));
+	state->mesh.normal_matrix = HMM_Transpose(HMM_InvGeneral(state->mesh.model_matrix));
+
 	sg_begin_pass(&(sg_pass){
 		.action = (sg_pass_action) {
 			.colors[0] = {
@@ -566,6 +654,7 @@ app_frame(
 
 	draw_mesh(&state->mesh_pipeline, &state->mesh, &state->camera);
 	draw_light_cubes(&state->light_cube_pipeline, &state->light_cube_bindings, &state->camera);
+	draw_horiz_grid(&state->horiz_grid_pipeline, &state->horiz_grid_bindings, &state->camera);
 
 	sg_end_pass();
 	sg_commit();
