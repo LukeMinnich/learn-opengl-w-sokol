@@ -1,5 +1,6 @@
 #include "grid.glsl.h"
 #include "light.glsl.h"
+#include "outline.glsl.h"
 #include "scene.glsl.h"
 
 #include "sokol_app.h"
@@ -30,6 +31,8 @@ typedef u16 INDEX_TYPE;
 #define WIDTH 800
 #define HEIGHT 600
 #define FOV_MAX 45.f
+
+#define MESH_OUTLINE 1
 
 #if 0
 #define W_CHECKERBOARD 4
@@ -194,12 +197,65 @@ init_mesh_pipeline(
 			},
 			// computed (default) stride should equal `sizeof(Vertex)`
 		},
-		.label = "render-pipeline",
+#if MESH_OUTLINE
+		.stencil = {
+			.enabled = true,
+			.ref = 0x01,
+			.read_mask = 0xFF,
+			.write_mask = 0xFF,
+			.front = {
+				.compare = SG_COMPAREFUNC_ALWAYS,
+				.pass_op  = SG_STENCILOP_REPLACE,
+			},
+			.back = {
+				.compare = SG_COMPAREFUNC_ALWAYS,
+				.pass_op  = SG_STENCILOP_REPLACE,
+			},
+		},
+#endif
 		.depth = {
 			.write_enabled = true,
 			.compare = SG_COMPAREFUNC_LESS,
 		},
 		.index_type = SG_INDEXTYPE_UINT16, // should match `INDEX_TYPE`
+		.label = "mesh-pipeline",
+	});
+}
+
+static void
+init_mesh_outline_pipeline(
+	sg_pipeline *pipeline
+) {
+	*pipeline = sg_make_pipeline(&(sg_pipeline_desc){
+		.shader = sg_make_shader(outline_shader_desc(sg_query_backend())),
+		.layout = {
+			.attrs = {
+				[ATTR_outline_aPos].format = SG_VERTEXFORMAT_FLOAT3,
+			},
+			.buffers = {
+				[ATTR_outline_aPos].stride = sizeof(Vertex),
+			},
+		},
+		.stencil = {
+			.enabled = true,
+			.ref = 0x01,
+			.read_mask = 0xFF,
+			.write_mask = 0x00,
+			.front = {
+				.compare = SG_COMPAREFUNC_NOT_EQUAL,
+				.pass_op = SG_STENCILOP_ZERO,
+			},
+			.back = {
+				.compare = SG_COMPAREFUNC_NOT_EQUAL,
+				.pass_op = SG_STENCILOP_ZERO,
+			},
+		},
+		.depth = {
+			.write_enabled = true,
+			.compare = SG_COMPAREFUNC_ALWAYS,
+		},
+		.index_type = SG_INDEXTYPE_UINT16, // should match `INDEX_TYPE`
+		.label = "mesh-outline-pipeline",
 	});
 }
 
@@ -215,6 +271,7 @@ typedef struct {
 typedef struct {
 	Mesh mesh;
 	sg_pipeline mesh_pipeline;
+	sg_pipeline mesh_outline_pipeline;
 	sg_pipeline light_cube_pipeline;
 	sg_bindings light_cube_bindings;
 	sg_pipeline horiz_grid_pipeline;
@@ -481,6 +538,35 @@ draw_mesh(
 }
 
 static void
+draw_mesh_outline(
+	sg_pipeline *pipeline,
+	Mesh *mesh,
+	Camera *camera
+) {
+#if MESH_OUTLINE
+#else
+	return;
+#endif
+	sg_apply_pipeline(*pipeline);
+	sg_apply_bindings(&mesh->bindings);
+
+	HMM_Vec3 camera_front = cam_direction_from_pitch_yaw(camera->pitch, camera->yaw);
+	outline_vs_params_t outline_vs_params = {
+		.view       = HMM_LookAt_RH(camera->pos, HMM_Add(camera->pos, camera_front), CAMERA_UP),
+		.projection = projection_matrix(camera),
+		.model      = HMM_Mul(mesh->model_matrix, HMM_Scale(HMM_V3(1.1f, 1.1f, 1.1f))),
+	};
+	sg_apply_uniforms(UB_outline_vs_params, &SG_RANGE(outline_vs_params));
+
+	outline_fs_params_t outline_fs_params = {
+		.outline_color = HMM_V3(0.04f, 0.28f, 0.26f),
+	};
+	sg_apply_uniforms(UB_outline_fs_params, &SG_RANGE(outline_fs_params));
+
+	sg_draw(0, mesh->n_indices, 1);
+}
+
+static void
 draw_light_cubes(
 	sg_pipeline *pipeline,
 	sg_bindings *bindings,
@@ -636,6 +722,7 @@ state_init(
 
 	init_mesh(&state->mesh);
 	init_mesh_pipeline(&state->mesh_pipeline);
+	init_mesh_outline_pipeline(&state->mesh_outline_pipeline);
 }
 
 static void
@@ -670,6 +757,7 @@ app_frame(
 	});
 
 	draw_mesh(&state->mesh_pipeline, &state->mesh, &state->camera);
+	draw_mesh_outline(&state->mesh_outline_pipeline, &state->mesh, &state->camera);
 	draw_light_cubes(&state->light_cube_pipeline, &state->light_cube_bindings, &state->camera);
 	draw_horiz_grid(&state->horiz_grid_pipeline, &state->horiz_grid_bindings, &state->camera);
 
