@@ -3,6 +3,7 @@
 #include "offscreen_passthru.glsl.h"
 #include "outline.glsl.h"
 #include "scene.glsl.h"
+#include "skybox.glsl.h"
 
 #include "sokol_app.h"
 #include "sokol_gfx.h"
@@ -34,7 +35,7 @@ typedef u16 INDEX_TYPE;
 #define FOV_MAX 45.f
 
 #define MESH_OUTLINE 0
-#define GRID         0
+#define GRID         1
 
 #if 0
 #define W_CHECKERBOARD 4
@@ -122,6 +123,47 @@ static const Vertex cube_vertices[] = {
 	{ { .X =  0.5f,  0.5f,  0.5f }, { .X =  0.0f,  1.0f,  0.0f}, { .S = 1.0f, 0.0f } },
 	{ { .X = -0.5f,  0.5f,  0.5f }, { .X =  0.0f,  1.0f,  0.0f}, { .S = 0.0f, 0.0f } },
 	{ { .X = -0.5f,  0.5f, -0.5f }, { .X =  0.0f,  1.0f,  0.0f}, { .S = 0.0f, 1.0f } },
+};
+
+typedef HMM_Vec3 SkyboxVertex;
+
+static const SkyboxVertex skybox_vertices[] = {
+	{ .X = -1.f,  1.f, -1.f },
+	{ .X = -1.f, -1.f, -1.f },
+	{ .X =  1.f, -1.f, -1.f },
+	{ .X =  1.f, -1.f, -1.f },
+	{ .X =  1.f,  1.f, -1.f },
+	{ .X = -1.f,  1.f, -1.f },
+	{ .X = -1.f, -1.f,  1.f },
+	{ .X = -1.f, -1.f, -1.f },
+	{ .X = -1.f,  1.f, -1.f },
+	{ .X = -1.f,  1.f, -1.f },
+	{ .X = -1.f,  1.f,  1.f },
+	{ .X = -1.f, -1.f,  1.f },
+	{ .X =  1.f, -1.f, -1.f },
+	{ .X =  1.f, -1.f,  1.f },
+	{ .X =  1.f,  1.f,  1.f },
+	{ .X =  1.f,  1.f,  1.f },
+	{ .X =  1.f,  1.f, -1.f },
+	{ .X =  1.f, -1.f, -1.f },
+	{ .X = -1.f, -1.f,  1.f },
+	{ .X = -1.f,  1.f,  1.f },
+	{ .X =  1.f,  1.f,  1.f },
+	{ .X =  1.f,  1.f,  1.f },
+	{ .X =  1.f, -1.f,  1.f },
+	{ .X = -1.f, -1.f,  1.f },
+	{ .X = -1.f,  1.f, -1.f },
+	{ .X =  1.f,  1.f, -1.f },
+	{ .X =  1.f,  1.f,  1.f },
+	{ .X =  1.f,  1.f,  1.f },
+	{ .X = -1.f,  1.f,  1.f },
+	{ .X = -1.f,  1.f, -1.f },
+	{ .X = -1.f, -1.f, -1.f },
+	{ .X = -1.f, -1.f,  1.f },
+	{ .X =  1.f, -1.f, -1.f },
+	{ .X =  1.f, -1.f, -1.f },
+	{ .X = -1.f, -1.f,  1.f },
+	{ .X =  1.f, -1.f,  1.f },
 };
 
 #define HALF_GRID 1000.f
@@ -284,6 +326,8 @@ typedef struct {
 	sg_bindings horiz_grid_bindings;
 	sg_pipeline fullscreen_quad_pipeline;
 	sg_bindings fullscreen_quad_bindings;
+	sg_pipeline skybox_pipeline;
+	sg_bindings skybox_bindings;
 	sg_view color_attachment;
 	sg_view depth_stencil_attachment;
 	Camera camera;
@@ -295,7 +339,7 @@ typedef struct {
 static const DirLight_t dir_lights[] = {
 	{
 		.direction = { .X = -0.2f , -1.f  , -0.3f  },
-		.ambient   = { .R =  0.05f,  0.05f,  0.05f },
+		.ambient   = { .R =  0.4f,  0.4f,  0.4f },
 		.diffuse   = { .R =  0.4f ,  0.4f ,  0.4f  },
 		.specular  = { .R =  0.5f ,  0.5f ,  0.5f  },
 	},
@@ -550,6 +594,25 @@ draw_mesh(
 }
 
 static void
+draw_skybox(
+	sg_pipeline *pipeline,
+	sg_bindings *bindings,
+	Camera *camera
+) {
+	sg_apply_pipeline(*pipeline);
+	sg_apply_bindings(bindings);
+
+	HMM_Vec3 camera_front = cam_direction_from_pitch_yaw(camera->pitch, camera->yaw);
+	skybox_vs_params_t skybox_vs_params = {
+		.view       = HMM_LookAt_RH(camera->pos, HMM_Add(camera->pos, camera_front), CAMERA_UP),
+		.projection = projection_matrix(camera),
+	};
+	sg_apply_uniforms(UB_skybox_vs_params, &SG_RANGE(skybox_vs_params));
+
+	sg_draw(0, countof(skybox_vertices), 1);
+}
+
+static void
 draw_mesh_outline(
 	sg_pipeline *pipeline,
 	Mesh *mesh,
@@ -658,6 +721,37 @@ void load_image(
 	}
 }
 
+static
+void init_skybox(
+	sg_image *img
+) {
+	int w_expected = 2048, h_expected = 2048;
+	usize surface_pitch = w_expected * h_expected * 4;
+	usize cube_texture_sz = surface_pitch * 6;
+	assert(surface_pitch == (usize)sg_query_surface_pitch(SG_PIXELFORMAT_RGBA8, w_expected, h_expected, 1));
+	byte *bytes = malloc(cube_texture_sz);
+	const char *paths[] = { "right", "left", "top", "bottom", "front", "back" };
+	char path_buf[32];
+	for (usize i = 0; i < countof(paths); ++i) {
+		int w, h, n_channels;
+		snprintf(path_buf, sizeof(path_buf), "assets/skybox/%s.jpg", paths[i]);
+		byte *data = stbi_load(path_buf, &w, &h, &n_channels, 4);
+		assert(data);
+		assert(h == h_expected && w == w_expected);
+		memcpy(bytes + i * surface_pitch, data, surface_pitch);
+		stbi_image_free(data);
+	}
+	*img = sg_make_image(&(sg_image_desc){
+		.type = SG_IMAGETYPE_CUBE,
+		.width = w_expected,
+		.height = h_expected,
+		.pixel_format = SG_PIXELFORMAT_RGBA8,
+		.num_slices = 6,
+		.data.mip_levels[0] = { .ptr = bytes, .size = cube_texture_sz, },
+	});
+	free(bytes);
+}
+
 #define optional(x) x *
 
 static void
@@ -679,6 +773,9 @@ state_init(
 		.height = sapp_height(),
 		.sample_count = 1,
 	});
+
+	sg_image skybox_img;
+	init_skybox(&skybox_img);
 
 	*state = (AppState){
 		.light_cube_pipeline = sg_make_pipeline(&(sg_pipeline_desc){
@@ -761,6 +858,41 @@ state_init(
 				.label = "offscreen-texture-view",
 			}),
 		},
+		.skybox_pipeline = sg_make_pipeline(&(sg_pipeline_desc){
+			.shader = sg_make_shader(skybox_shader_desc(sg_query_backend())),
+			.layout = (sg_vertex_layout_state){
+				// attributes map to fields of `SkyboxVertex`
+				.attrs = {
+					[ATTR_skybox_aPos].format = SG_VERTEXFORMAT_FLOAT3,
+				},
+			},
+			.depth = (sg_depth_state){
+				.write_enabled = false,
+			},
+			.label = "skybox-pipeline",
+		}),
+		.skybox_bindings = (sg_bindings){
+			.vertex_buffers[0] = sg_make_buffer(&(sg_buffer_desc){
+				.usage.vertex_buffer = true,
+				.usage.immutable = true,
+				.data = SG_RANGE(skybox_vertices),
+				.label = "skybox-vertex-buffer",
+			}),
+			.samplers[SMP_skyboxSampler] = sg_make_sampler(&(sg_sampler_desc){
+				.min_filter = SG_FILTER_LINEAR,
+				.mag_filter = SG_FILTER_LINEAR,
+				.wrap_u = SG_WRAP_CLAMP_TO_EDGE,
+				.wrap_v = SG_WRAP_CLAMP_TO_EDGE,
+				.wrap_w = SG_WRAP_CLAMP_TO_EDGE,
+				.label = "skybox-samplers"
+			}),
+			.views[0] = sg_make_view(&(sg_view_desc){
+				.texture = {
+					.image = skybox_img,
+				},
+				.label = "skybox-texture",
+			}),
+		},
 		.color_attachment = sg_make_view(&(sg_view_desc){
 			.color_attachment.image = color_attachment_img,
 			.label = "color-attachment-view",
@@ -829,6 +961,7 @@ app_frame(
 		},
 	});
 
+	draw_skybox(&state->skybox_pipeline, &state->skybox_bindings, &state->camera);
 	draw_mesh(&state->mesh_pipeline, &state->mesh, &state->camera);
 	draw_mesh_outline(&state->mesh_outline_pipeline, &state->mesh, &state->camera);
 	draw_light_cubes(&state->light_cube_pipeline, &state->light_cube_bindings, &state->camera);
