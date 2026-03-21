@@ -16,8 +16,7 @@ void main(
 	void
 ) {
 	TexCoords = aPos;
-	mat4 view_stripped = mat4(mat3(view));
-	gl_Position = projection * view_stripped * vec4(aPos, 1.);
+	gl_Position = projection * view * vec4(aPos, 1.);
 }
 @end
 

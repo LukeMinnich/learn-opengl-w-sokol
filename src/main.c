@@ -603,8 +603,11 @@ draw_skybox(
 	sg_apply_bindings(bindings);
 
 	HMM_Vec3 camera_front = cam_direction_from_pitch_yaw(camera->pitch, camera->yaw);
+	HMM_Mat4 view = HMM_LookAt_RH(camera->pos, HMM_Add(camera->pos, camera_front), CAMERA_UP);
+	/* Strip translation from view matrix; keep rotation. */
+	view.Columns[3] = (HMM_Vec4){ .W = 1.f};
 	skybox_vs_params_t skybox_vs_params = {
-		.view       = HMM_LookAt_RH(camera->pos, HMM_Add(camera->pos, camera_front), CAMERA_UP),
+		.view       = view,
 		.projection = projection_matrix(camera),
 	};
 	sg_apply_uniforms(UB_skybox_vs_params, &SG_RANGE(skybox_vs_params));
