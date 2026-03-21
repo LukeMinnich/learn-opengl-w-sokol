@@ -18,11 +18,13 @@ in vec2 aTexCoord;
 out vec2 TexCoord;
 out vec3 FragPos;
 out vec3 Normal;
+out vec3 Position;
 
 void main(
 	void
 ) {
-	gl_Position = projection * view * model * vec4(aPos, 1.);
+	Position = vec3(model * vec4(aPos, 1.));
+	gl_Position = projection * view * vec4(Position, 1.);
 	FragPos = (model * vec4(aPos, 1.f)).xyz;
 	Normal = mat3(normal) * aNormal;
 	TexCoord = aTexCoord;
@@ -36,6 +38,7 @@ layout(binding=1) uniform scene_fs_params {
 	vec3 viewPos;
 	int n_dir_lights;
 	int n_point_lights;
+	vec3 cameraPos;
 };
 layout(binding=2) uniform scene_material {
 	float mat_shininess;
@@ -66,11 +69,16 @@ struct PointLight {
 layout(binding=3) readonly buffer in_point_lights {
 	PointLight point_lights[];
 };
+
+layout(binding=1) uniform sampler envSampler;
+layout(binding=4) uniform textureCube envTexture;
+
 vec3 CalcPointLight(PointLight light, vec3 normal, vec3 viewDir, vec3 fragPos);
 
 in vec2 TexCoord;
 in vec3 FragPos;
 in vec3 Normal;
+in vec3 Position;
 
 out vec4 FragColor;
 
@@ -89,6 +97,10 @@ void main(
 	}
 
 	FragColor = vec4(result, 1.);
+
+	vec3 I = normalize(Position - cameraPos);
+	vec3 R = reflect(I, normalize(Normal));
+	FragColor = vec4(texture(samplerCube(envTexture, envSampler), R).rgb, 1.f);
 }
 
 vec3

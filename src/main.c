@@ -35,7 +35,7 @@ typedef u16 INDEX_TYPE;
 #define FOV_MAX 45.f
 
 #define MESH_OUTLINE 0
-#define GRID         1
+#define GRID         0
 
 #if 0
 #define W_CHECKERBOARD 4
@@ -587,6 +587,7 @@ draw_mesh(
 		.viewPos = camera->pos,
 		.n_dir_lights = countof(dir_lights),
 		.n_point_lights = countof(point_lights),
+		.cameraPos = camera->pos,
 	};
 	sg_apply_uniforms(UB_scene_fs_params, &SG_RANGE(scene_fs_params));
 
@@ -896,7 +897,7 @@ state_init(
 				.wrap_w = SG_WRAP_CLAMP_TO_EDGE,
 				.label = "skybox-samplers"
 			}),
-			.views[0] = sg_make_view(&(sg_view_desc){
+			.views[VIEW_skyboxTexture] = sg_make_view(&(sg_view_desc){
 				.texture = {
 					.image = skybox_img,
 				},
@@ -922,6 +923,8 @@ state_init(
 	};
 
 	init_mesh(&state->mesh);
+	state->mesh.bindings.samplers[SMP_envSampler] = state->skybox_bindings.samplers[SMP_skyboxSampler];
+	state->mesh.bindings.views[VIEW_envTexture] = state->skybox_bindings.views[VIEW_skyboxTexture];
 	init_mesh_pipeline(&state->mesh_pipeline);
 	init_mesh_outline_pipeline(&state->mesh_outline_pipeline);
 }
