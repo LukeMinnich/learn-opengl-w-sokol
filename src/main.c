@@ -1,5 +1,6 @@
 #include "grid.glsl.h"
 #include "light.glsl.h"
+#include "offscreen_passthru.glsl.h"
 #include "outline.glsl.h"
 #include "scene.glsl.h"
 
@@ -28,11 +29,12 @@ typedef u16 INDEX_TYPE;
 
 #define countof(x) (sizeof(x) / sizeof((x)[0]))
 
-#define WIDTH 800
-#define HEIGHT 600
+#define WIDTH 1280
+#define HEIGHT 720
 #define FOV_MAX 45.f
 
-#define MESH_OUTLINE 1
+#define MESH_OUTLINE 0
+#define GRID         0
 
 #if 0
 #define W_CHECKERBOARD 4
@@ -169,14 +171,14 @@ mesh_default_texture_views(
 	mesh->textures[0] = (Texture){
 		.kind = TEXTURE_DIFFUSE,
 		.view = sg_make_view(&(sg_view_desc){
-			.texture = (sg_texture_view_desc){ .image = diffuse_img },
+			.texture.image = diffuse_img,
 			.label = "diffuse-texture",
 		}),
 	};
 	mesh->textures[1] = (Texture){
 		.kind = TEXTURE_SPECULAR,
 		.view = sg_make_view(&(sg_view_desc){
-			.texture = (sg_texture_view_desc){ .image = specular_img },
+			.texture.image = specular_img,
 			.label = "specular-texture",
 		}),
 	};
@@ -280,6 +282,10 @@ typedef struct {
 	sg_bindings light_cube_bindings;
 	sg_pipeline horiz_grid_pipeline;
 	sg_bindings horiz_grid_bindings;
+	sg_pipeline fullscreen_quad_pipeline;
+	sg_bindings fullscreen_quad_bindings;
+	sg_view color_attachment;
+	sg_view depth_stencil_attachment;
 	Camera camera;
 	f32 delta_time;
 	bool window_focused;
@@ -604,6 +610,10 @@ draw_horiz_grid(
 	sg_bindings *bindings,
 	Camera *camera
 ) {
+#if GRID
+#else
+	return;
+#endif
 	sg_apply_pipeline(*pipeline);
 	sg_apply_bindings(bindings);
 
@@ -648,10 +658,28 @@ void load_image(
 	}
 }
 
+#define optional(x) x *
+
 static void
 state_init(
 	AppState *state
 ) {
+	// how to handle resizing the window??
+	sg_image color_attachment_img = sg_make_image(&(sg_image_desc){
+		.usage.color_attachment = true,
+		.usage.immutable = true,
+		.width = sapp_width(),
+		.height = sapp_height(),
+		.sample_count = 1,
+	});
+	sg_image depth_stencil_attachment_img = sg_make_image(&(sg_image_desc){
+		.usage.depth_stencil_attachment = true,
+		.usage.immutable = true,
+		.width = sapp_width(),
+		.height = sapp_height(),
+		.sample_count = 1,
+	});
+
 	*state = (AppState){
 		.light_cube_pipeline = sg_make_pipeline(&(sg_pipeline_desc){
 			.shader = sg_make_shader(light_shader_desc(sg_query_backend())),
@@ -716,6 +744,31 @@ state_init(
 			.data = SG_RANGE(unit_quad_horiz),
 			.label = "grid-index-buffer",
 		}),
+		.fullscreen_quad_pipeline = sg_make_pipeline(&(sg_pipeline_desc){
+			.shader = sg_make_shader(offscreen_passthru_shader_desc(sg_query_backend())),
+			.label = "fullscreen-quad-pipeline",
+		}),
+		.fullscreen_quad_bindings = (sg_bindings){
+			.samplers[SMP_texSampler] = sg_make_sampler(&(sg_sampler_desc){
+				.min_filter = SG_FILTER_NEAREST,
+				.mag_filter = SG_FILTER_NEAREST,
+				.wrap_u = SG_WRAP_CLAMP_TO_EDGE,
+				.wrap_v = SG_WRAP_CLAMP_TO_EDGE,
+				.label = "fullscreen_quad-sampler"
+			}),
+			.views[VIEW_offscreenTexture] = sg_make_view(&(sg_view_desc){
+				.texture.image = color_attachment_img,
+				.label = "offscreen-texture-view",
+			}),
+		},
+		.color_attachment = sg_make_view(&(sg_view_desc){
+			.color_attachment.image = color_attachment_img,
+			.label = "color-attachment-view",
+		}),
+		.depth_stencil_attachment = sg_make_view(&(sg_view_desc){
+			.depth_stencil_attachment.image = depth_stencil_attachment_img,
+			.label = "depth-stencil-attachment-view",
+		}),
 		.camera = (Camera){
 			.fov = FOV_MAX,
 			.pitch = -10.f,
@@ -756,10 +809,24 @@ app_frame(
 		.action = (sg_pass_action) {
 			.colors[0] = {
 				.load_action = SG_LOADACTION_CLEAR,
+				.store_action = SG_STOREACTION_STORE,
 				.clear_value = { 0.1f, 0.1f, 0.1f, 1.0f },
-			}
+			},
+			.depth = {
+				.load_action = SG_LOADACTION_CLEAR,
+				.store_action = SG_STOREACTION_STORE,
+				.clear_value = 1.f,
+			},
+			.stencil = {
+				.load_action = SG_LOADACTION_CLEAR,
+				.store_action = SG_STOREACTION_DONTCARE,
+				.clear_value = 0,
+			},
 		},
-		.swapchain = sglue_swapchain()
+		.attachments = {
+			.colors[0] = state->color_attachment, // how to tell it to render to this one?
+			.depth_stencil = state->depth_stencil_attachment,
+		},
 	});
 
 	draw_mesh(&state->mesh_pipeline, &state->mesh, &state->camera);
@@ -768,6 +835,28 @@ app_frame(
 	draw_horiz_grid(&state->horiz_grid_pipeline, &state->horiz_grid_bindings, &state->camera);
 
 	sg_end_pass();
+
+	sg_begin_pass(&(sg_pass){
+		.action = (sg_pass_action) {
+			.colors[0] = {
+				.load_action = SG_LOADACTION_DONTCARE,
+				.store_action = SG_STOREACTION_STORE,
+			},
+		},
+		.swapchain = sglue_swapchain(),
+	});
+
+	sg_apply_pipeline(state->fullscreen_quad_pipeline);
+	sg_apply_bindings(&state->fullscreen_quad_bindings);
+	postprocess_params_t postprocess = {
+		.screen_dims = HMM_V2(sapp_width(), sapp_height()),
+	};
+	sg_apply_uniforms(UB_postprocess_params, &SG_RANGE(postprocess));
+
+	sg_draw(0, 3, 1);
+
+	sg_end_pass();
+
 	sg_commit();
 }
 
@@ -840,6 +929,10 @@ app_init(
 	stm_setup();
 	state_init((AppState *)state_);
 	sapp_lock_mouse(true);
+	sg_features features = sg_query_features();
+	if (!features.origin_top_left) {
+		assert(false); // post-processing shader and any kernels therein needs to be flipped about y-axis
+	}
 }
 
 static void
