@@ -735,6 +735,7 @@ static
 void init_skybox(
 	sg_image *img
 ) {
+	stbi_set_flip_vertically_on_load(false);
 	int w_expected = 2048, h_expected = 2048;
 	usize surface_pitch = w_expected * h_expected * 4;
 	usize cube_texture_sz = surface_pitch * 6;

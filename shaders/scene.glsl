@@ -85,6 +85,7 @@ out vec4 FragColor;
 void main(
 	void
 ) {
+	// Phong lighting
 	vec3 norm = normalize(Normal);
 	vec3 viewDir = normalize(viewPos - FragPos);
 
@@ -98,8 +99,17 @@ void main(
 
 	FragColor = vec4(result, 1.);
 
+	// Purely reflective
+	// vec3 I = normalize(Position - cameraPos);
+	// vec3 R = reflect(I, normalize(Normal));
+	// R = vec3(R.xy, -R.z); // convert cubemap LH coords to RH
+	// FragColor = vec4(texture(samplerCube(envTexture, envSampler), R).rgb, 1.f);
+
+	// Purely refractive
+	float ratio = 1. / 1.52; // air -> glass
 	vec3 I = normalize(Position - cameraPos);
-	vec3 R = reflect(I, normalize(Normal));
+	vec3 R = refract(I, normalize(Normal), ratio);
+	R = vec3(R.xy, -R.z); // convert cubemap LH coords to RH
 	FragColor = vec4(texture(samplerCube(envTexture, envSampler), R).rgb, 1.f);
 }
 

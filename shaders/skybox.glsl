@@ -15,7 +15,7 @@ out vec3 TexCoords;
 void main(
 	void
 ) {
-	TexCoords = aPos;
+	TexCoords = vec3(aPos.xy, -aPos.z); // convert cubemap LH coords to RH
 	vec4 pos = projection * view * vec4(aPos, 1.);
 	/* Trick perspective division into thinking every fragment is at Z == 1.0. Then we can render
 	   the skybox after all other opaque meshes (to mitigate some overdraw). */
