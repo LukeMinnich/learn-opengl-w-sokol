@@ -684,11 +684,17 @@ draw_horiz_grid(
 	sg_apply_bindings(bindings);
 
 	HMM_Vec3 camera_front = cam_direction_from_pitch_yaw(camera->pitch, camera->yaw);
+	/* Keep the grid centered on the camera X-Z, so it feels "infinite". Snap to some fixed interval
+	   to avoid artifacts while panning. */
+	float interval = 10.f;
+	HMM_Vec3 grid_pos = {
+		.X = floorf(camera->pos.X / interval) * interval,
+		.Z = floorf(camera->pos.Z / interval) * interval,
+	};
 	grid_vs_params_t grid_vs_params = {
 		.view       = HMM_LookAt_RH(camera->pos, HMM_Add(camera->pos, camera_front), CAMERA_UP),
 		.projection = projection_matrix(camera),
-		/* Keep the grid centered on the camera X-Z, so it feels "infinite". */
-		.model      = HMM_Translate(HMM_V3(camera->pos.X, 0.f, camera->pos.Z)),
+		.model      = HMM_Translate(grid_pos),
 	};
 
 	sg_apply_uniforms(UB_grid_vs_params, &SG_RANGE(grid_vs_params));
