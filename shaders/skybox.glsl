@@ -16,7 +16,10 @@ void main(
 	void
 ) {
 	TexCoords = aPos;
-	gl_Position = projection * view * vec4(aPos, 1.);
+	vec4 pos = projection * view * vec4(aPos, 1.);
+	/* Trick perspective division into thinking every fragment is at Z == 1.0. Then we can render
+	   the skybox after all other opaque meshes (to mitigate some overdraw). */
+	gl_Position = pos.xyww;
 }
 @end
 

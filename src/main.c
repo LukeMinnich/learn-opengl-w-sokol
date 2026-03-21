@@ -877,6 +877,7 @@ state_init(
 			},
 			.depth = (sg_depth_state){
 				.write_enabled = false,
+				.compare = SG_COMPAREFUNC_LESS_EQUAL,
 			},
 			.label = "skybox-pipeline",
 		}),
@@ -970,10 +971,10 @@ app_frame(
 		},
 	});
 
-	draw_skybox(&state->skybox_pipeline, &state->skybox_bindings, &state->camera);
 	draw_mesh(&state->mesh_pipeline, &state->mesh, &state->camera);
 	draw_mesh_outline(&state->mesh_outline_pipeline, &state->mesh, &state->camera);
 	draw_light_cubes(&state->light_cube_pipeline, &state->light_cube_bindings, &state->camera);
+	draw_skybox(&state->skybox_pipeline, &state->skybox_bindings, &state->camera);
 	draw_horiz_grid(&state->horiz_grid_pipeline, &state->horiz_grid_bindings, &state->camera);
 
 	sg_end_pass();
