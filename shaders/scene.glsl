@@ -6,28 +6,39 @@
 
 @vs scene_vs
 layout(binding=0) uniform scene_vs_params {
-	mat4 model;
 	mat4 view;
 	mat4 projection;
+};
+
+struct PerInstanceTransform {
+	mat4 model;
 	mat4 normal;
 };
+layout(binding=5) readonly buffer in_per_instance_transforms {
+	PerInstanceTransform per_instance_transforms[];
+};
+
 in vec3 aPos;
 in vec3 aNormal;
 in vec2 aTexCoord;
 
-out vec2 TexCoord;
-out vec3 FragPos;
-out vec3 Normal;
-out vec3 Position;
+out THRU {
+	vec2 TexCoord;
+	vec3 FragPos;
+	vec3 Normal;
+	vec3 Position;
+} vs_out;
 
 void main(
 	void
 ) {
-	Position = vec3(model * vec4(aPos, 1.));
-	gl_Position = projection * view * vec4(Position, 1.);
-	FragPos = (model * vec4(aPos, 1.f)).xyz;
-	Normal = mat3(normal) * aNormal;
-	TexCoord = aTexCoord;
+	mat4 model  = per_instance_transforms[gl_InstanceIndex].model;
+	mat4 normal = per_instance_transforms[gl_InstanceIndex].normal;
+	vs_out.Position = vec3(model * vec4(aPos, 1.));
+	gl_Position = projection * view * vec4(vs_out.Position, 1.);
+	vs_out.FragPos = (model * vec4(aPos, 1.f)).xyz;
+	vs_out.Normal = mat3(normal) * aNormal;
+	vs_out.TexCoord = aTexCoord;
 }
 @end
 
@@ -75,42 +86,44 @@ layout(binding=4) uniform textureCube envTexture;
 
 vec3 CalcPointLight(PointLight light, vec3 normal, vec3 viewDir, vec3 fragPos);
 
-in vec2 TexCoord;
-in vec3 FragPos;
-in vec3 Normal;
-in vec3 Position;
+in THRU {
+	vec2 TexCoord;
+	vec3 FragPos;
+	vec3 Normal;
+	vec3 Position;
+} fs_in;
 
 out vec4 FragColor;
 
 void main(
 	void
 ) {
+	// Purely reflective
+	// vec3 I = normalize(fs_in.Position - cameraPos);
+	// vec3 R = reflect(I, normalize(fs_in.Normal));
+	// R = vec3(R.xy, -R.z); // convert cubemap LH coords to RH
+	// FragColor = vec4(texture(samplerCube(envTexture, envSampler), R).rgb, 1.f);
+
+	// Purely refractive
+	float ratio = 1. / 1.52; // air -> glass
+	vec3 I = normalize(fs_in.Position - cameraPos);
+	vec3 R = refract(I, normalize(fs_in.Normal), ratio);
+	R = vec3(R.xy, -R.z); // convert cubemap LH coords to RH
+	FragColor = vec4(texture(samplerCube(envTexture, envSampler), R).rgb, 1.f);
+
 	// Phong lighting
-	vec3 norm = normalize(Normal);
-	vec3 viewDir = normalize(viewPos - FragPos);
+	vec3 norm = normalize(fs_in.Normal);
+	vec3 viewDir = normalize(viewPos - fs_in.FragPos);
 
 	vec3 result = vec3(0.);
 	for (int i = 0; i < n_dir_lights; ++i) {
 		result += CalcDirLight(dir_lights[i], norm, viewDir);
 	}
 	for (int i = 0; i < n_point_lights; ++i) {
-		result += CalcPointLight(point_lights[i], norm, viewDir, FragPos);
+		result += CalcPointLight(point_lights[i], norm, viewDir, fs_in.FragPos);
 	}
 
 	FragColor = vec4(result, 1.);
-
-	// Purely reflective
-	// vec3 I = normalize(Position - cameraPos);
-	// vec3 R = reflect(I, normalize(Normal));
-	// R = vec3(R.xy, -R.z); // convert cubemap LH coords to RH
-	// FragColor = vec4(texture(samplerCube(envTexture, envSampler), R).rgb, 1.f);
-
-	// Purely refractive
-	float ratio = 1. / 1.52; // air -> glass
-	vec3 I = normalize(Position - cameraPos);
-	vec3 R = refract(I, normalize(Normal), ratio);
-	R = vec3(R.xy, -R.z); // convert cubemap LH coords to RH
-	FragColor = vec4(texture(samplerCube(envTexture, envSampler), R).rgb, 1.f);
 }
 
 vec3
@@ -121,8 +134,8 @@ CalcDirLight(
 ) {
 	vec3 lightDir = normalize(-light.direction);
 	// sample texture for diffuse/ambient
-	vec3 sampled_diffuse  = vec3(texture(sampler2D(diffuseTexture , texSampler), TexCoord));
-	vec3 sampled_specular = vec3(texture(sampler2D(specularTexture, texSampler), TexCoord));
+	vec3 sampled_diffuse  = vec3(texture(sampler2D(diffuseTexture , texSampler), fs_in.TexCoord));
+	vec3 sampled_specular = vec3(texture(sampler2D(specularTexture, texSampler), fs_in.TexCoord));
 	// ambient
 	vec3 ambient = light.ambient * sampled_diffuse;
 	// diffuse
