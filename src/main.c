@@ -38,6 +38,10 @@ typedef u16 INDEX_TYPE;
 #define GRID         0
 #define NUM_INSTANCES 5
 
+/* MSAA */
+#define OFFSCREEN_SAMPLE_COUNT 4
+#define DISPLAY_SAMPLE_COUNT   4
+
 #if 0
 #define W_CHECKERBOARD 4
 #define H_CHECKERBOARD 4
@@ -265,6 +269,7 @@ init_mesh_pipeline(
 		.cull_mode = SG_CULLMODE_BACK,
 		.face_winding = SG_FACEWINDING_CCW,
 		.index_type = SG_INDEXTYPE_UINT16, // should match `INDEX_TYPE`
+		.sample_count = OFFSCREEN_SAMPLE_COUNT,
 		.label = "mesh-pipeline",
 	});
 }
@@ -330,6 +335,7 @@ typedef struct {
 	sg_pipeline skybox_pipeline;
 	sg_bindings skybox_bindings;
 	sg_view color_attachment;
+	sg_view resolve_attachment_msaa;
 	sg_view depth_stencil_attachment;
 	Camera camera;
 	f32 delta_time;
@@ -780,6 +786,13 @@ state_init(
 		.usage.immutable = true,
 		.width = sapp_width(),
 		.height = sapp_height(),
+		.sample_count = OFFSCREEN_SAMPLE_COUNT,
+	});
+	sg_image resolve_img = sg_make_image(&(sg_image_desc){
+		.usage.resolve_attachment = true,
+		.usage.immutable = true,
+		.width = sapp_width(),
+		.height = sapp_height(),
 		.sample_count = 1,
 	});
 	sg_image depth_stencil_attachment_img = sg_make_image(&(sg_image_desc){
@@ -787,7 +800,7 @@ state_init(
 		.usage.immutable = true,
 		.width = sapp_width(),
 		.height = sapp_height(),
-		.sample_count = 1,
+		.sample_count = OFFSCREEN_SAMPLE_COUNT,
 	});
 
 	sg_image skybox_img;
@@ -870,7 +883,7 @@ state_init(
 				.label = "fullscreen_quad-sampler"
 			}),
 			.views[VIEW_offscreenTexture] = sg_make_view(&(sg_view_desc){
-				.texture.image = color_attachment_img,
+				.texture.image = resolve_img,
 				.label = "offscreen-texture-view",
 			}),
 		},
@@ -913,6 +926,10 @@ state_init(
 		.color_attachment = sg_make_view(&(sg_view_desc){
 			.color_attachment.image = color_attachment_img,
 			.label = "color-attachment-view",
+		}),
+		.resolve_attachment_msaa = sg_make_view(&(sg_view_desc){
+			.resolve_attachment.image = resolve_img,
+			.label = "resolve-attachment-msaa",
 		}),
 		.depth_stencil_attachment = sg_make_view(&(sg_view_desc){
 			.depth_stencil_attachment.image = depth_stencil_attachment_img,
@@ -965,7 +982,7 @@ app_frame(
 		.action = (sg_pass_action) {
 			.colors[0] = {
 				.load_action = SG_LOADACTION_CLEAR,
-				.store_action = SG_STOREACTION_STORE,
+				.store_action = SG_STOREACTION_DONTCARE, // b/c it's only needed until the msaa resolve
 				.clear_value = { 0.1f, 0.1f, 0.1f, 1.0f },
 			},
 			.depth = {
@@ -980,7 +997,8 @@ app_frame(
 			},
 		},
 		.attachments = {
-			.colors[0] = state->color_attachment, // how to tell it to render to this one?
+			.colors[0] = state->color_attachment,
+			.resolves[0] = state->resolve_attachment_msaa,
 			.depth_stencil = state->depth_stencil_attachment,
 		},
 	});
@@ -996,8 +1014,9 @@ app_frame(
 	sg_begin_pass(&(sg_pass){
 		.action = (sg_pass_action) {
 			.colors[0] = {
-				.load_action = SG_LOADACTION_DONTCARE,
+				.load_action = SG_LOADACTION_CLEAR,
 				.store_action = SG_STOREACTION_STORE,
+				.clear_value = { 0.25f, 0.65f, 0.45f, 1.f },
 			},
 		},
 		.swapchain = sglue_swapchain(),
@@ -1115,6 +1134,7 @@ sapp_desc sokol_main(
 		.cleanup_userdata_cb = app_cleanup,
 		.user_data = state,
 		.event_userdata_cb = app_handle_event,
+		.sample_count = DISPLAY_SAMPLE_COUNT,
 		.width = WIDTH,
 		.height = HEIGHT,
 		.window_title = "Triangle",
