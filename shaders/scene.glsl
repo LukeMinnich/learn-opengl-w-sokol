@@ -134,9 +134,9 @@ CalcDirLight(
 	// diffuse
 	float diff = max(dot(normal, lightDir), 0.);
 	vec3 diffuse = light.diffuse * diff * sampled_diffuse;
-	// specular
-	vec3 reflectDir = reflect(-lightDir, normal);
-	float spec = pow(max(dot(viewDir, reflectDir), 0.), mat_shininess);
+	// specular (w/ Blinn-Phong modifications)
+	vec3 halfwayDir = normalize(lightDir + viewDir);
+	float spec = pow(max(dot(normal, halfwayDir), 0.), mat_shininess);
 	vec3 specular = light.specular * spec * sampled_specular;
 	return ambient + diffuse + specular;
 }
