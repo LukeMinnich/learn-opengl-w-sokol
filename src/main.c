@@ -200,8 +200,7 @@ typedef struct {
 	usize n_textures;
 	sg_bindings bindings;
 	HMM_Mat4 model_matrix;
-	sg_buffer per_instance_transforms_buffer;
-	// HMM_Mat4 normal_matrix;
+	HMM_Mat4 normal_matrix;
 } Mesh;
 
 static void
@@ -234,17 +233,15 @@ init_mesh_pipeline(
 ) {
 	*pipeline = sg_make_pipeline(&(sg_pipeline_desc){
 		.shader = sg_make_shader(scene_shader_desc(sg_query_backend())),
-// #ifdef NO_INSTANCING
 		.layout = {
-			// attributes map to fields of `Vertex`
 			.attrs = {
-				[ATTR_scene_aPos].format = SG_VERTEXFORMAT_FLOAT3,
-				[ATTR_scene_aNormal].format = SG_VERTEXFORMAT_FLOAT3,
-				[ATTR_scene_aTexCoord].format = SG_VERTEXFORMAT_FLOAT2,
+				[ATTR_scene_aPos]              = { .format = SG_VERTEXFORMAT_FLOAT3, .buffer_index = 0 },
+				[ATTR_scene_aNormal]           = { .format = SG_VERTEXFORMAT_FLOAT3, .buffer_index = 0 },
+				[ATTR_scene_aTexCoord]         = { .format = SG_VERTEXFORMAT_FLOAT2, .buffer_index = 0 },
+				[ATTR_scene_instance_position] = { .format = SG_VERTEXFORMAT_FLOAT3, .buffer_index = 1 },
 			},
-			// computed (default) stride should equal `sizeof(Vertex)`
+			.buffers[1] = { .step_func = SG_VERTEXSTEP_PER_INSTANCE, },
 		},
-// #endif
 #if MESH_OUTLINE
 		.stencil = {
 			.enabled = true,
@@ -398,13 +395,6 @@ mesh_init_bindings(
 ) {
 	assert(mesh->n_textures < countof(mesh->bindings.views));
 
-	mesh->per_instance_transforms_buffer = sg_make_buffer(&(sg_buffer_desc){
-		.usage.storage_buffer = true,
-		.usage.stream_update = true,
-		.size = NUM_INSTANCES * sizeof(PerInstanceTransform_t),
-		.label = "per-instance-transform",
-	});
-
 	mesh->bindings = (sg_bindings){
 		.vertex_buffers[0] = sg_make_buffer(&(sg_buffer_desc){
 			.usage.vertex_buffer = true,
@@ -414,6 +404,12 @@ mesh_init_bindings(
 				.size = sizeof(*mesh->vertices) * mesh->n_vertices,
 			},
 			.label = "mesh-vertex-buffer",
+		}),
+		.vertex_buffers[1] = sg_make_buffer(&(sg_buffer_desc){
+			.usage.vertex_buffer = true,
+			.usage.stream_update = true,
+			.size = NUM_INSTANCES * sizeof(HMM_Vec3),
+			.label = "per-instance-positions",
 		}),
 		.index_buffer = sg_make_buffer(&(sg_buffer_desc){
 			.usage.index_buffer = true,
@@ -450,10 +446,6 @@ mesh_init_bindings(
 				}),
 			},
 			.label = "point-lights-storage",
-		}),
-		.views[VIEW_in_per_instance_transforms] = sg_make_view(&(sg_view_desc){
-			.storage_buffer = { .buffer = mesh->per_instance_transforms_buffer },
-			.label = "per-instace-data-view",
 		}),
 	};
 	bool diffuse_found = false, specular_found = false;
@@ -592,6 +584,8 @@ draw_mesh(
 	scene_vs_params_t scene_vs_params = {
 		.view       = HMM_LookAt_RH(camera->pos, HMM_Add(camera->pos, camera_front), CAMERA_UP),
 		.projection = projection_matrix(camera),
+		.model      = mesh->model_matrix,
+		.normal     = mesh->normal_matrix,
 	};
 	sg_apply_uniforms(UB_scene_vs_params, &SG_RANGE(scene_vs_params));
 
@@ -960,12 +954,12 @@ app_frame(
 	float theta = stm_sec(current_frame - time_paused) * 100.;
 	state->mesh.model_matrix = HMM_Mul(HMM_Translate(HMM_V3(0.f, 0.f, 0.f)),
 	                                   HMM_Rotate_RH(HMM_AngleDeg(-theta), HMM_V3(0.f, 1.0f, 0.0f)));
-	PerInstanceTransform_t transforms[NUM_INSTANCES];
-	for (usize i = 0; i < countof(transforms); ++i) {
-		transforms[i].model = HMM_Mul(HMM_Translate(HMM_V3(-8.f + 4.f * i, 0., 0.)), state->mesh.model_matrix);
-		transforms[i].normal = HMM_Transpose(HMM_InvGeneral(transforms[i].model));
+	state->mesh.normal_matrix = HMM_Transpose(HMM_InvGeneral(state->mesh.model_matrix));
+	HMM_Vec3 per_instance_positions[NUM_INSTANCES];
+	for (usize i = 0; i < countof(per_instance_positions); ++i) {
+		per_instance_positions[i] = HMM_V3(-8.f + 4.f * i, 0., 0.);
 	}
-	sg_update_buffer(state->mesh.per_instance_transforms_buffer, &SG_RANGE(transforms));
+	sg_update_buffer(state->mesh.bindings.vertex_buffers[1], &SG_RANGE(per_instance_positions));
 	
 	sg_begin_pass(&(sg_pass){
 		.action = (sg_pass_action) {

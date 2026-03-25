@@ -8,19 +8,14 @@
 layout(binding=0) uniform scene_vs_params {
 	mat4 view;
 	mat4 projection;
-};
-
-struct PerInstanceTransform {
 	mat4 model;
 	mat4 normal;
-};
-layout(binding=5) readonly buffer in_per_instance_transforms {
-	PerInstanceTransform per_instance_transforms[];
 };
 
 in vec3 aPos;
 in vec3 aNormal;
 in vec2 aTexCoord;
+in vec3 instance_position;
 
 out THRU {
 	vec2 TexCoord;
@@ -32,9 +27,7 @@ out THRU {
 void main(
 	void
 ) {
-	mat4 model  = per_instance_transforms[gl_InstanceIndex].model;
-	mat4 normal = per_instance_transforms[gl_InstanceIndex].normal;
-	vs_out.Position = vec3(model * vec4(aPos, 1.));
+	vs_out.Position = vec3(model * vec4(aPos, 1.) + vec4(instance_position, 1.));
 	gl_Position = projection * view * vec4(vs_out.Position, 1.);
 	vs_out.FragPos = (model * vec4(aPos, 1.f)).xyz;
 	vs_out.Normal = mat3(normal) * aNormal;
