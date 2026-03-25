@@ -30,6 +30,13 @@ in vec2 uv;
 out vec4 FragColor;
 
 void
+apply_gamma_correction(
+	inout vec3 color
+) {
+	color = pow(abs(color), vec3(1. / 2.2));
+}
+
+void
 main(
 	void
 ) {
@@ -94,6 +101,8 @@ main(
 	FragColor = vec4(average, average, average, 1.f);
 
 	FragColor = texture(sampler2D(offscreenTexture , texSampler), TexCoords);
+
+	apply_gamma_correction(FragColor.rgb);
 }
 @end
 

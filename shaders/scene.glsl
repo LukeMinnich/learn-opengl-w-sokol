@@ -88,6 +88,13 @@ in THRU {
 
 out vec4 FragColor;
 
+void
+srgb_to_linear(
+	inout vec3 color
+) {
+	color = pow(abs(color), vec3(2.2));
+}
+
 void main(
 	void
 ) {
@@ -129,6 +136,7 @@ CalcDirLight(
 	// sample texture for diffuse/ambient
 	vec3 sampled_diffuse  = vec3(texture(sampler2D(diffuseTexture , texSampler), fs_in.TexCoord));
 	vec3 sampled_specular = vec3(texture(sampler2D(specularTexture, texSampler), fs_in.TexCoord));
+	srgb_to_linear(sampled_diffuse);
 	// ambient
 	vec3 ambient = light.ambient * sampled_diffuse;
 	// diffuse

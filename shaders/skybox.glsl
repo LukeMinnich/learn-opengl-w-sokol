@@ -30,10 +30,18 @@ layout(binding=0) uniform textureCube skyboxTexture;
 in vec3 TexCoords;
 out vec4 FragColor;
 
+void
+srgb_to_linear(
+	inout vec3 color
+) {
+	color = pow(abs(color), vec3(2.2));
+}
+
 void main(
 	void
 ) {
 	FragColor = texture(samplerCube(skyboxTexture, skyboxSampler), TexCoords);
+	srgb_to_linear(FragColor.rgb);
 }
 @end
 
