@@ -1,3 +1,4 @@
+#if 0
 #include "grid.glsl.h"
 #include "light.glsl.h"
 #include "offscreen_passthru.glsl.h"
@@ -1142,3 +1143,5 @@ sapp_desc sokol_main(
 		.logger.func = slog_func,
 	};
 }
+#endif
+float allow_empty_compilation_main_c;
