@@ -42,7 +42,7 @@ SHD_MK      := $(SHD)/gen.mk
 exe: $(EXE)
 
 ALL_OBJECTS := $(OBJECTS) $(TMP)/sokol.o
-FRAMEWORKS := AudioToolbox Cocoa Metal MetalKit Quartz
+FRAMEWORKS := AudioToolbox Cocoa Metal QuartzCore
 
 $(EXE): $(ALL_OBJECTS)
 	mkdir -p $(@D)
