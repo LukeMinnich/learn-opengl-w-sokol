@@ -13,10 +13,10 @@ layout(binding=0) uniform vs_shadow_params {
     mat4 mvp;
 };
 
-in vec4 pos;
+in vec3 position;
 
 void main() {
-    gl_Position = mvp * pos;
+    gl_Position = mvp * vec4(position, 1.);
 }
 @end
 
@@ -32,25 +32,33 @@ void main() { }
 layout(binding=0) uniform vs_display_params {
     mat4 mvp;
     mat4 model;
+    mat4 normal_matrix;
     mat4 light_mvp;
     vec3 diff_color;
 };
 
-in vec4 pos;
-in vec3 norm;
+in vec3 position;
+in vec3 normal;
+in vec3 tangent;
+in vec3 tex_coord;
+
 out vec3 color;
 out vec4 light_proj_pos;
-out vec4 world_pos;
-out vec3 world_norm;
+
+out THRU {
+	vec3 world_pos;
+	vec3 world_norm;
+} vs_out;
 
 void main() {
-    gl_Position = mvp * pos;
-    light_proj_pos = light_mvp * pos;
+    vec4 pos_hom = vec4(position, 1.);
+    gl_Position = mvp * pos_hom;
+    light_proj_pos = light_mvp * pos_hom;
     #if !SOKOL_GLSL
         light_proj_pos.y = -light_proj_pos.y;
     #endif
-    world_pos = model * pos;
-    world_norm = normalize((model * vec4(norm, 0.0)).xyz);
+    vs_out.world_pos = vec3(model * pos_hom);
+    vs_out.world_norm = mat3(normal_matrix) * normal;
     color = diff_color;
 }
 @end
@@ -68,8 +76,11 @@ layout(binding=0) uniform sampler shadow_sampler;
 
 in vec3 color;
 in vec4 light_proj_pos;
-in vec4 world_pos;
-in vec3 world_norm;
+
+in THRU {
+	vec3 world_pos;
+	vec3 world_norm;
+} fs_in;
 
 out vec4 frag_color;
 
@@ -105,13 +116,13 @@ void main() {
     float spec_power = 2.2;
     float ambient_intensity = 0.25;
     vec3 l = normalize(light_dir);
-    vec3 n = normalize(world_norm);
+    vec3 n = normalize(fs_in.world_norm);
     float n_dot_l = dot(n, l);
     if (n_dot_l > 0.0) {
         float s = pcf_shadow(light_proj_pos);
         float diff_intensity = max(n_dot_l * s, 0.0);
 
-        vec3 v = normalize(eye_pos - world_pos.xyz);
+        vec3 v = normalize(eye_pos - fs_in.world_pos);
         vec3 r = reflect(-l, n);
         float r_dot_v = max(dot(r, v), 0.0);
         float spec_intensity = pow(r_dot_v, spec_power) * n_dot_l * s;
@@ -136,6 +147,9 @@ out vec2 uv;
 void main() {
     gl_Position = vec4(pos*2.0 - 1.0, 0.5, 1.0);
     uv = pos;
+    #if !SOKOL_GLSL
+        uv.y = 1.f - uv.y;
+    #endif
 }
 @end
 

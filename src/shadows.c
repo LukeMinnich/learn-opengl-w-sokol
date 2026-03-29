@@ -1,51 +1,31 @@
-#include "shadow.glsl.h"
-//------------------------------------------------------------------------------
-//  Shadow mapping via a depth-buffer texture.
-//
-//  - depth-only shadow pass into shadow map (no color render targets)
-//  - display pass samples shadow map with a comparison sampler
-//  - debug visualization samples shadow map with a regular sampler
-//------------------------------------------------------------------------------
+#include "alias.h"
+#include "camera.h"
+#include "mesh.glsl.h"
+#include "mesh.h"
+#include "render.h"
+
+#include "handmade_math.h"
 #include "sokol_app.h"
 #include "sokol_gfx.h"
 #include "sokol_glue.h"
 #include "sokol_log.h"
 #include "sokol_time.h"
 
-#include "handmade_math.h"
-
-#define countof(x) (sizeof(x) / sizeof(x[0]))
-
-#define Y_AXIS ((HMM_Vec3){ .Y = 1.f })
-#define CAMERA_UP Y_AXIS
-
-#define FOV_MAX 60.f
-#define PERSPECTIVE_NEAR 0.01f
-#define ORTHOGRAPHIC_NEAR 0.f
-#define FAR 100.f
-#define SHADOW_MAP_SZ 512
-
-typedef float f32;
-
-typedef struct {
-	HMM_Vec3 pos;
-	f32 pitch;
-	f32 yaw;
-	f32 fov;
-} Camera;
+#define SHADOW_MAP_SZ 1024
+#define DEBUG_SZ       200
 
 static struct {
-	sg_buffer vertex_buffer;
-	sg_buffer index_buffer;
+	Mesh tetrahedron_mesh;
+	Mesh plane_mesh;
 	struct {
-		sg_pass pass;
+		sg_view depth_attachment;
+		sg_image depth_img;
 		sg_pipeline pip;
-		sg_bindings bind;
 	} shadow;
 	struct {
-		sg_pass pass;
 		sg_pipeline pip;
-		sg_bindings bind;
+		sg_view shadow_map_tex_view;
+		sg_sampler shadow_sampler;
 	} display;
 	struct {
 		sg_pipeline pip;
@@ -57,76 +37,16 @@ static struct {
 	f32 delta_time;
 } state = {0};
 
-typedef struct {
-	HMM_Vec3 position;
-	HMM_Vec3 normal;
-} Vertex;
-
-// vertex buffer for a cube and plane
-static const Vertex scene_vertices[] = {
-	{{ .X = -1.0f, -1.0f, -1.0f }, { .X = 0.0f, 0.0f, -1.0}},//CUBE BACK FACE
-	{{ .X =  1.0f, -1.0f, -1.0f }, { .X = 0.0f, 0.0f, -1.0}},
-	{{ .X =  1.0f,  1.0f, -1.0f }, { .X = 0.0f, 0.0f, -1.0}},
-	{{ .X = -1.0f,  1.0f, -1.0f }, { .X = 0.0f, 0.0f, -1.0}},
-
-	{{ .X = -1.0f, -1.0f,  1.0f }, { .X = 0.0f, 0.0f, 1.0f}},//CUBE FRONT FACE
-	{{ .X =  1.0f, -1.0f,  1.0f }, { .X = 0.0f, 0.0f, 1.0f}},
-	{{ .X =  1.0f,  1.0f,  1.0f }, { .X = 0.0f, 0.0f, 1.0f}},
-	{{ .X = -1.0f,  1.0f,  1.0f }, { .X = 0.0f, 0.0f, 1.0f}},
-
-	{{ .X = -1.0f, -1.0f, -1.0f }, { .X = -1.0f, 0.0f, 0.0f}},//CUBE LEFT FACE
-	{{ .X = -1.0f,  1.0f, -1.0f }, { .X = -1.0f, 0.0f, 0.0f}},
-	{{ .X = -1.0f,  1.0f,  1.0f }, { .X = -1.0f, 0.0f, 0.0f}},
-	{{ .X = -1.0f, -1.0f,  1.0f }, { .X = -1.0f, 0.0f, 0.0f}},
-
-	{{ .X =  1.0f, -1.0f, -1.0f }, { .X = 1.0f, 0.0f, 0.0f}},//CUBE RIGHT FACE
-	{{ .X =  1.0f,  1.0f, -1.0f }, { .X = 1.0f, 0.0f, 0.0f}},
-	{{ .X =  1.0f,  1.0f,  1.0f }, { .X = 1.0f, 0.0f, 0.0f}},
-	{{ .X =  1.0f, -1.0f,  1.0f }, { .X = 1.0f, 0.0f, 0.0f}},
-
-	{{ .X = -1.0f, -1.0f, -1.0f }, { .X = 0.0f, -1.0f, 0.0f}},//CUBE BOTTOM FACE
-	{{ .X = -1.0f, -1.0f,  1.0f }, { .X = 0.0f, -1.0f, 0.0f}},
-	{{ .X =  1.0f, -1.0f,  1.0f }, { .X = 0.0f, -1.0f, 0.0f}},
-	{{ .X =  1.0f, -1.0f, -1.0f }, { .X = 0.0f, -1.0f, 0.0f}},
-
-	{{ .X = -1.0f,  1.0f, -1.0f }, { .X = 0.0f, 1.0f, 0.0f}},//CUBE TOP FACE
-	{{ .X = -1.0f,  1.0f,  1.0f }, { .X = 0.0f, 1.0f, 0.0f}},
-	{{ .X =  1.0f,  1.0f,  1.0f }, { .X = 0.0f, 1.0f, 0.0f}},
-	{{ .X =  1.0f,  1.0f, -1.0f }, { .X = 0.0f, 1.0f, 0.0f}},
-
-	{{ .X = -10.0f,  0.0f, -10.0f }, { .X = 0.0f, 1.0f, 0.0f}},//PLANE GEOMETRY
-	{{ .X = -10.0f,  0.0f,  10.0f }, { .X = 0.0f, 1.0f, 0.0f}},
-	{{ .X =  10.0f,  0.0f,  10.0f }, { .X = 0.0f, 1.0f, 0.0f}},
-	{{ .X =  10.0f,  0.0f, -10.0f }, { .X = 0.0f, 1.0f, 0.0f}},
-};
-
-	// ...and a matching index buffer for the scene
-static const uint16_t scene_indices[] = {
-	 0,  1,  2,  0,  2,  3,
-	 6,  5,  4,  7,  6,  4,
-	 8,  9, 10,  8, 10, 11,
-	14, 13, 12, 15, 14, 12,
-	16, 17, 18, 16, 18, 19,
-	22, 21, 20, 23, 22, 20,
-	26, 25, 24, 27, 26, 24,
-};
-
-#define N_PLANE_INDICES 6
-
-#define DEBUG_SZ 200
-
 static void
 init(
 	void
 ) {
+	sapp_lock_mouse(true);
+	stm_setup();
 	sg_setup(&(sg_desc){
 		.environment = sglue_environment(),
 		.logger.func = slog_func,
 	});
-
-	stm_setup();
-
-	sapp_lock_mouse(true);
 
 	state.camera = (Camera){
 		.fov = FOV_MAX,
@@ -136,63 +56,26 @@ init(
 	};
 	state.window_focused = true;
 
-	state.vertex_buffer = sg_make_buffer(&(sg_buffer_desc){
-		.data = SG_RANGE(scene_vertices),
-		.label = "cube-vertices"
-	});
-
-	state.index_buffer = sg_make_buffer(&(sg_buffer_desc){
-		.usage.index_buffer = true,
-		.data = SG_RANGE(scene_indices),
-		.label = "cube-indices"
-	});
-
-	// display pass action
-	state.display.pass = (sg_pass){
-		.action = (sg_pass_action){
-		.colors[0] = {
-			.load_action = SG_LOADACTION_CLEAR,
-			.clear_value = { 0.25f, 0.25f, 0.25f, 1.0f}
-			},
-		},
-	};
-
-	// a shadow map render target which will serve as depth buffer in the shadow pass
-	sg_image shadow_map_img = sg_make_image(&(sg_image_desc){
+	state.shadow.depth_img = sg_make_image(&(sg_image_desc){
 		.usage.depth_stencil_attachment = true,
 		.width = SHADOW_MAP_SZ,
 		.height = SHADOW_MAP_SZ,
 		.pixel_format = SG_PIXELFORMAT_DEPTH,
-		.sample_count = 1,
+		.sample_count = SHADOW_SAMPLE_COUNT,
 		.label = "shadow-map",
 	});
 
-	// a pass attachment and a texture view for the shadow map render target
-	sg_view shadow_map_ds_view = sg_make_view(&(sg_view_desc){
-		.depth_stencil_attachment = { .image = shadow_map_img },
-		.label = "shadow-map-depth-stencil-view",
-	});
-	sg_view shadow_map_tex_view = sg_make_view(&(sg_view_desc){
-		.texture = { .image = shadow_map_img },
+	state.display.shadow_map_tex_view = sg_make_view(&(sg_view_desc){
+		.texture = { .image = state.shadow.depth_img },
 		.label = "shadow-map-tex-view",
 	});
 
-	// shadow render pass descriptor
-	state.shadow.pass = (sg_pass) {
-		// shadow map pass action: only clear depth buffer, don't configure color and stencil actions,
-		// because there are no color and stencil targets
-		.action.depth = {
-			.load_action = SG_LOADACTION_CLEAR,
-			.store_action = SG_STOREACTION_STORE,
-			.clear_value = 1.0f,
-		},
-		// the pass only has a depth-stencil attachment
-		.attachments.depth_stencil = shadow_map_ds_view,
-	};
+	state.shadow.depth_attachment = sg_make_view(&(sg_view_desc){
+		.depth_stencil_attachment = { .image = state.shadow.depth_img },
+		.label = "shadow-map-depth-stencil-view",
+	});
 
-
-	// a comparison sampler which is used to sample the shadow map texture in the display pass
-	sg_sampler shadow_sampler = sg_make_sampler(&(sg_sampler_desc){
+	state.display.shadow_sampler = sg_make_sampler(&(sg_sampler_desc){
 		.min_filter = SG_FILTER_LINEAR,
 		.mag_filter = SG_FILTER_LINEAR,
 		.wrap_u = SG_WRAP_CLAMP_TO_BORDER,
@@ -202,61 +85,11 @@ init(
 		.label = "shadow-sampler",
 	});
 
-	// a pipeline object for the shadow pass
-	state.shadow.pip = sg_make_pipeline(&(sg_pipeline_desc){
-		.layout = {
-			// need to provide vertex stride, because normal component is skipped in shadow pass
-			.buffers[0].stride = sizeof(Vertex),
-			.attrs = {
-				[ATTR_shadow_pos].format = SG_VERTEXFORMAT_FLOAT3,
-			},
-		},
-		.shader = sg_make_shader(shadow_shader_desc(sg_query_backend())),
-		.index_type = SG_INDEXTYPE_UINT16,
-		// render back-faces in shadow pass to prevent shadow acne on front-faces
-		.cull_mode = SG_CULLMODE_FRONT,
-		.sample_count = 1,
-		.depth = {
-			.pixel_format = SG_PIXELFORMAT_DEPTH,
-			.compare = SG_COMPAREFUNC_LESS_EQUAL,
-			.write_enabled = true,
-		},
-		// important: 'deactivate' the default color target for 'depth-only-rendering'
-		.colors[0].pixel_format = SG_PIXELFORMAT_NONE,
-		.label = "shadow-pipeline"
-	});
+	mesh_gen_primitive_tetrahedron(&state.tetrahedron_mesh);
+	mesh_gen_primitive_plane(&state.plane_mesh);
 
-	// resource bindings to render shadow scene
-	state.shadow.bind = (sg_bindings) {
-		.vertex_buffers[0] = state.vertex_buffer,
-		.index_buffer = state.index_buffer,
-	};
-
-	// a pipeline object for the display pass
-	state.display.pip = sg_make_pipeline(&(sg_pipeline_desc){
-		.layout = {
-			.attrs = {
-				[ATTR_display_pos].format = SG_VERTEXFORMAT_FLOAT3,
-				[ATTR_display_norm].format = SG_VERTEXFORMAT_FLOAT3,
-			}
-		},
-		.shader = sg_make_shader(display_shader_desc(sg_query_backend())),
-		.index_type = SG_INDEXTYPE_UINT16,
-		.cull_mode = SG_CULLMODE_BACK,
-		.depth = {
-			.compare = SG_COMPAREFUNC_LESS_EQUAL,
-			.write_enabled = true,
-		},
-		.label = "display-pipeline",
-	});
-
-	// resource bindings to render display scene
-	state.display.bind = (sg_bindings) {
-		.vertex_buffers[0] = state.vertex_buffer,
-		.index_buffer = state.index_buffer,
-		.views[VIEW_shadow_map] = shadow_map_tex_view,
-		.samplers[SMP_shadow_sampler] = shadow_sampler,
-	};
+	mesh_shadow_pipeline(&state.shadow.pip);
+	mesh_display_pipeline(&state.display.pip);
 
 	// a vertex buffer, pipeline and sampler to render a debug visualization of the shadow map
 	float dbg_vertices[] = { 0.0f, 0.0f,  1.0f, 0.0f,  0.0f, 1.0f,  1.0f, 1.0f };
@@ -285,7 +118,7 @@ init(
 	});
 	state.dbg.bind = (sg_bindings){
 		.vertex_buffers[0] = dbg_vbuf,
-		.views[VIEW_dbg_tex] = shadow_map_tex_view,
+		.views[VIEW_dbg_tex] = state.display.shadow_map_tex_view,
 		.samplers[SMP_dbg_smp] = dbg_smp,
 	};
 }
@@ -317,24 +150,25 @@ frame(
 	state.delta_time = stm_sec(diff);
 	last_frame = current_frame;
 
-	float rot = stm_sec(current_frame - time_paused) * 10.;
+	float rot = stm_sec(current_frame - time_paused) * 50.;
 
-	HMM_Mat4 plane_model = HMM_M4D(1.);
-	HMM_Vec3 cube_pos    = HMM_V3(0.0f, 1.5f, 0.0f);
-	HMM_Mat4 cube_model  = HMM_Translate(cube_pos);
-	HMM_Vec3 plane_color = HMM_V3(1.0f, 0.5f, 0.0f);
-	HMM_Vec3 cube_color  = HMM_V3(0.5f, 1.0f, 0.5f);
+	HMM_Mat4 plane_model = HMM_Mul(HMM_Rotate_RH(HMM_AngleDeg(-90.f), X_AXIS),
+	                               HMM_Scale(HMM_V3(10.f, 10.f, 10.f)));
+	HMM_Vec3 tetrahedron_pos   = HMM_V3(0.0f, 1.5f, 0.0f);
+	HMM_Mat4 tetrahedron_model = HMM_Translate(tetrahedron_pos);
+	HMM_Vec3 plane_color       = HMM_V3(1.0f, 0.5f, 0.0f);
+	HMM_Vec3 tetrahedron_color = HMM_V3(0.5f, 1.0f, 0.5f);
 
 	// calculate matrices for shadow pass
 	HMM_Mat4 light_rot  = HMM_Rotate_RH(HMM_AngleDeg(rot), Y_AXIS);
 	HMM_Vec4 light_pos  = HMM_Mul(light_rot, HMM_V4(50.f, 50.f, -50.f, 1.0f));
-	HMM_Mat4 light_view = HMM_LookAt_RH(light_pos.XYZ, cube_pos, CAMERA_UP);
+	HMM_Mat4 light_view = HMM_LookAt_RH(light_pos.XYZ, tetrahedron_pos, CAMERA_UP);
 	// NOTE(luke): use Z0 here and not NO variant of orthographic projection. */
 	HMM_Mat4 light_proj = HMM_Orthographic_RH_ZO(-5.0f, 5.0f, -5.0f, 5.0f, ORTHOGRAPHIC_NEAR, FAR);
 	HMM_Mat4 light_vp   = HMM_Mul(light_proj, light_view);
 
-	vs_shadow_params_t cube_vs_shadow_params = {
-		.mvp = HMM_Mul(light_vp, cube_model),
+	vs_shadow_params_t tetrahedron_vs_shadow_params = {
+		.mvp = HMM_Mul(light_vp, tetrahedron_model),
 	};
 
 	// calculate matrices for display pass
@@ -351,41 +185,59 @@ frame(
 		.eye_pos = state.camera.pos,
 		.shadow_map_size = HMM_V2(SHADOW_MAP_SZ, SHADOW_MAP_SZ),
 	};
-
 	vs_display_params_t plane_vs_display_params = {
 		.mvp = HMM_Mul(view_proj, plane_model),
 		.model = plane_model,
+		.normal_matrix = HMM_Transpose(HMM_InvGeneral(plane_model)),
 		.light_mvp = HMM_Mul(light_vp, plane_model),
 		.diff_color = plane_color,
 	};
-
-	vs_display_params_t cube_vs_display_params = {
-		.mvp = HMM_Mul(view_proj, cube_model),
-		.model = cube_model,
-		.light_mvp = HMM_Mul(light_vp, cube_model),
-		.diff_color = cube_color,
+	vs_display_params_t tetrahedron_vs_display_params = {
+		.mvp = HMM_Mul(view_proj, tetrahedron_model),
+		.model = tetrahedron_model,
+		.normal_matrix = HMM_Transpose(HMM_InvGeneral(tetrahedron_model)),
+		.light_mvp = HMM_Mul(light_vp, tetrahedron_model),
+		.diff_color = tetrahedron_color,
 	};
 
 	// the shadow map pass, render scene from light source into shadow map texture
-	sg_begin_pass(&state.shadow.pass);
+	sg_begin_pass(&(sg_pass){
+		// shadow map pass action: only clear depth buffer, don't configure color and stencil actions,
+		// because there are no color and stencil targets
+		.action.depth = {
+			.load_action = SG_LOADACTION_CLEAR,
+			.store_action = SG_STOREACTION_STORE,
+			.clear_value = 1.0f,
+		},
+		// the pass only has a depth-stencil attachment
+		.attachments.depth_stencil = state.shadow.depth_attachment,
+	});
 	sg_apply_pipeline(state.shadow.pip);
-	sg_apply_bindings(&state.shadow.bind);
-	sg_apply_uniforms(UB_vs_shadow_params, &SG_RANGE(cube_vs_shadow_params));
-	sg_draw(0, countof(scene_indices), 1);
+	sg_apply_uniforms(UB_vs_shadow_params, &SG_RANGE(tetrahedron_vs_shadow_params));
+	mesh_draw_shadow(&state.tetrahedron_mesh);
 	sg_end_pass();
 
 	// the display pass, render scene from camera, compare-sample shadow map texture
-	state.display.pass.swapchain = sglue_swapchain();
-	sg_begin_pass(&state.display.pass);
+	sg_begin_pass(&(sg_pass){
+		.action = {
+			.colors[0] = {
+				.load_action = SG_LOADACTION_CLEAR,
+				.clear_value = { 0.25f, 0.25f, 0.25f, 1.0f}
+			},
+		},
+		.swapchain = sglue_swapchain(),
+	});
 	sg_apply_pipeline(state.display.pip);
-	sg_apply_bindings(&state.display.bind);
 	sg_apply_uniforms(UB_fs_display_params, &SG_RANGE(fs_display_params));
-	// render plane
+
+	sg_apply_uniforms(UB_vs_display_params, &SG_RANGE(tetrahedron_vs_display_params));
+	mesh_draw_display(&state.tetrahedron_mesh, state.display.shadow_map_tex_view,
+	                  state.display.shadow_sampler);
+
 	sg_apply_uniforms(UB_vs_display_params, &SG_RANGE(plane_vs_display_params));
-	sg_draw(countof(scene_indices) - N_PLANE_INDICES, N_PLANE_INDICES, 1);
-	// render cube
-	sg_apply_uniforms(UB_vs_display_params, &SG_RANGE(cube_vs_display_params));
-	sg_draw(0, countof(scene_indices) - N_PLANE_INDICES, 1);
+	mesh_draw_display(&state.plane_mesh, state.display.shadow_map_tex_view,
+	                  state.display.shadow_sampler);
+
 	// render debug visualization of shadow-map
 	sg_apply_pipeline(state.dbg.pip);
 	sg_apply_bindings(&state.dbg.bind);
