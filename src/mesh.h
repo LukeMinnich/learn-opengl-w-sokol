@@ -2,13 +2,14 @@
 #ifndef MESH_H
 #define MESH_H
 
-#include "alias.h"
+#include "primitives.h"
+#include "texture.h"
 
 #include "handmade_math.h"
 #include "sokol_gfx.h"
 
 #define MESH_INDEX_TYPE SG_INDEXTYPE_UINT16
-typedef u16 MeshIndex; // keep in sync w/ ^
+typedef u16 MeshIndex; // keep in-sync w/ ^
 
 typedef struct {
 	HMM_Vec3 position;
@@ -21,19 +22,10 @@ typedef struct {
 	MeshIndex indices[3];
 } MeshTriangle;
 
-typedef enum {
-	TextureDiffuse,
-	TextureSpecular,
-	TextureEmissive,
-	TextureNormal,
-	TextureParallax,
-	Texture__Count,
-} TextureKind;
-
 typedef struct {
 	sg_buffer vertex_buffer;
 	sg_buffer index_buffer;
-	sg_view textures[Texture__Count];
+	sg_view textures[TextureKindCount];
 	u32 num_elements;
 } Mesh;
 

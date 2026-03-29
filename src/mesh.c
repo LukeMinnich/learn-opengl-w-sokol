@@ -202,21 +202,21 @@ mesh_gen_primitive_cube(
 			p1 = HMM_V3(x, -y, -z);
 			p2 = HMM_V3(x,  y,  z);
 			p3 = HMM_V3(x,  y, -z);
-		}
-		if (z_facing) {
+		} else if (z_facing) {
 			p0 = HMM_V3( x, -y, -z);
 			p1 = HMM_V3(-x, -y, -z);
 			p2 = HMM_V3( x,  y, -z);
 			p3 = HMM_V3(-x,  y, -z);
-		}
-		if (y_facing) {
+		} else {
+			assert(y_facing);
+			(void)y_facing;
 			p0 = HMM_V3( x, y * sign, -z * sign);
 			p1 = HMM_V3(-x, y * sign, -z * sign);
 			p2 = HMM_V3( x, y * sign,  z * sign);
 			p3 = HMM_V3(-x, y * sign,  z * sign);
 		}
 
-		usize off = i * 4;
+		MeshIndex off = (MeshIndex)i * 4;
 		vertices[off + 0] = (MeshVertex){ .position = p0, .tex_coord = t0 };
 		vertices[off + 1] = (MeshVertex){ .position = p1, .tex_coord = t1 };
 		vertices[off + 2] = (MeshVertex){ .position = p2, .tex_coord = t2 };
@@ -281,7 +281,7 @@ mesh_draw_shadow(
 		.vertex_buffers[0] = mesh->vertex_buffer,
 		.index_buffer = mesh->index_buffer,
 	});
-	sg_draw(0, mesh->num_elements, 1);
+	sg_draw(0, (int)mesh->num_elements, 1);
 }
 
 void
@@ -296,5 +296,5 @@ mesh_draw_display(
 		.views[VIEW_shadow_map] = shadow_map_tex_view,
 		.samplers[SMP_shadow_sampler] = shadow_sampler,
 	});
-	sg_draw(0, mesh->num_elements, 1);
+	sg_draw(0, (int)mesh->num_elements, 1);
 }

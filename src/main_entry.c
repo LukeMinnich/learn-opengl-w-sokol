@@ -1,10 +1,12 @@
-#if 0
 #include "grid.glsl.h"
 #include "light.glsl.h"
 #include "offscreen_passthru.glsl.h"
 #include "outline.glsl.h"
 #include "scene.glsl.h"
 #include "skybox.glsl.h"
+
+#include "camera.h"
+#include "mesh.h"
 
 #include "sokol_app.h"
 #include "sokol_gfx.h"
@@ -21,20 +23,6 @@
 #include <float.h>
 #include <stdlib.h>
 
-typedef float f32;
-typedef uint16_t u16;
-typedef uint32_t u32;
-typedef size_t usize;
-typedef unsigned char byte;
-
-typedef u16 INDEX_TYPE;
-
-#define countof(x) (sizeof(x) / sizeof((x)[0]))
-
-#define WIDTH 1280
-#define HEIGHT 720
-#define FOV_MAX 45.f
-
 #define MESH_OUTLINE 0
 #define GRID         0
 #define NUM_INSTANCES 5
@@ -42,49 +30,6 @@ typedef u16 INDEX_TYPE;
 /* MSAA */
 #define OFFSCREEN_SAMPLE_COUNT 4
 #define DISPLAY_SAMPLE_COUNT   4
-
-#if 0
-#define W_CHECKERBOARD 4
-#define H_CHECKERBOARD 4
-static const byte checkerboard_data[4 * W_CHECKERBOARD * H_CHECKERBOARD] = {
-	0x00, 0x00, 0x00, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0x00, 0x00, 0x00, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF,
-	0xFF, 0xFF, 0xFF, 0xFF, 0x00, 0x00, 0x00, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0x00, 0x00, 0x00, 0xFF, 
-	0x00, 0x00, 0x00, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0x00, 0x00, 0x00, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF,
-	0xFF, 0xFF, 0xFF, 0xFF, 0x00, 0x00, 0x00, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0x00, 0x00, 0x00, 0xFF, 
-};
-
-static
-void checkerboard(
-	sg_image *img
-) {
-	*img = sg_make_image(&(sg_image_desc){
-		.width = W_CHECKERBOARD,
-		.height = H_CHECKERBOARD,
-		.pixel_format = SG_PIXELFORMAT_RGBA8,
-		.data.mip_levels[0] = {
-			.ptr = checkerboard_data,
-			.size = sizeof(checkerboard_data),
-		},
-	});
-}
-
-static const byte solid_white_data[4] = { 0xFF, 0xFF, 0xFF, 0xFF };
-
-static
-void solid_white(
-	sg_image *img
-) {
-	*img = sg_make_image(&(sg_image_desc){
-		.width = 1,
-		.height = 1,
-		.pixel_format = SG_PIXELFORMAT_RGBA8,
-		.data.mip_levels[0] = {
-			.ptr = solid_white_data,
-			.size = sizeof(solid_white_data),
-		},
-	});
-}
-#endif
 
 typedef struct {
 	HMM_Vec3 pos;
@@ -173,8 +118,6 @@ static const SkyboxVertex skybox_vertices[] = {
 };
 
 #define HALF_GRID 1000.f
-#define FAR       1000.f
-#define NEAR        0.1f
 
 static const Vertex unit_quad_horiz_vertices[] = {
 	{ { .X = -HALF_GRID, 0.f, -HALF_GRID }, {0}, {0} },
@@ -183,7 +126,7 @@ static const Vertex unit_quad_horiz_vertices[] = {
 	{ { .X =  HALF_GRID, 0.f,  HALF_GRID }, {0}, {0} },
 };
 
-static const INDEX_TYPE unit_quad_horiz[] = {
+static const MeshIndex unit_quad_horiz[] = {
 	0, 1, 2,
 	1, 3, 2,
 };
@@ -199,18 +142,18 @@ typedef struct {
 typedef struct {
 	Vertex *vertices;
 	usize n_vertices;
-	INDEX_TYPE *indices;
+	MeshIndex *indices;
 	usize n_indices;
 	Texture *textures;
 	usize n_textures;
 	sg_bindings bindings;
 	HMM_Mat4 model_matrix;
 	HMM_Mat4 normal_matrix;
-} Mesh;
+} MeshDup;
 
 static void
 mesh_default_texture_views(
-	Mesh *mesh,
+	MeshDup *mesh,
 	sg_image diffuse_img,
 	sg_image specular_img
 ) {
@@ -315,16 +258,7 @@ init_mesh_outline_pipeline(
 }
 
 typedef struct {
-	f32 pitch;
-	f32 yaw;
-	f32 fov;
-	HMM_Vec3 pos;
-} Camera;
-
-#define CAMERA_UP ((HMM_Vec3){ .X = 0.f, .Y = 1.f, .Z = 0.f })
-
-typedef struct {
-	Mesh mesh;
+	MeshDup mesh;
 	sg_pipeline mesh_pipeline;
 	sg_pipeline mesh_outline_pipeline;
 	sg_pipeline light_cube_pipeline;
@@ -398,7 +332,7 @@ static const PointLight_t point_lights[] = {
 
 static void
 mesh_init_bindings(
-	Mesh *mesh
+	MeshDup *mesh
 ) {
 	assert(mesh->n_textures < countof(mesh->bindings.views));
 
@@ -490,7 +424,7 @@ static void load_image(const char *filename, bool flip, sg_image *img);
 
 static void
 load_obj_as_mesh(
-	Mesh *mesh,
+	MeshDup *mesh,
 	const char *filename
 ) {
 	fastObjMesh *read = fast_obj_read(filename);
@@ -503,7 +437,7 @@ load_obj_as_mesh(
 
 	for (usize i = 0; i < read->face_count * 3; ++i) {
 		fastObjIndex *index = read->indices + i;
-		mesh->indices[i] = (INDEX_TYPE)index->p;
+		mesh->indices[i] = (MeshIndex)index->p;
 		mesh->vertices[index->p] = (Vertex){
 			.pos  = *(HMM_Vec3 *)(read->positions + index->p * 3),
 			.norm = *(HMM_Vec3 *)(read->normals   + index->n * 3),
@@ -517,7 +451,7 @@ load_obj_as_mesh(
 #if 0
 static void
 mesh_default_vertex_data(
-	Mesh *mesh
+	MeshDup *mesh
 ) {
 	mesh->n_vertices = countof(cube_vertices);
 	mesh->vertices = cube_vertices;
@@ -526,9 +460,9 @@ mesh_default_vertex_data(
 
 static void
 init_mesh(
-	Mesh *mesh
+	MeshDup *mesh
 ) {
-	*mesh = (Mesh){0};
+	*mesh = (MeshDup){0};
 	load_obj_as_mesh(mesh, "assets/backpack.obj");
 
 	sg_image diffuse_img, specular_img;
@@ -544,7 +478,7 @@ init_mesh(
 
 static void
 deinit_mesh(
-	Mesh *mesh
+	MeshDup *mesh
 ) {
 	if (mesh->textures) {
 		free(mesh->textures);
@@ -570,13 +504,13 @@ projection_matrix(
 	Camera *camera
 ) {
 	f32 aspect_ratio = sapp_widthf() / sapp_heightf();
-	return HMM_Perspective_RH_NO(HMM_AngleDeg(camera->fov), aspect_ratio, NEAR, FAR);
+	return HMM_Perspective_RH_NO(HMM_AngleDeg(camera->fov), aspect_ratio, PERSPECTIVE_NEAR, 1000.f);
 }
 
 static void
 draw_mesh(
 	sg_pipeline *pipeline,
-	Mesh *mesh,
+	MeshDup *mesh,
 	Camera *camera
 ) {
 	sg_apply_pipeline(*pipeline);
@@ -632,7 +566,7 @@ draw_skybox(
 static void
 draw_mesh_outline(
 	sg_pipeline *pipeline,
-	Mesh *mesh,
+	MeshDup *mesh,
 	Camera *camera
 ) {
 #if MESH_OUTLINE
@@ -1136,12 +1070,10 @@ sapp_desc sokol_main(
 		.user_data = state,
 		.event_userdata_cb = app_handle_event,
 		.sample_count = DISPLAY_SAMPLE_COUNT,
-		.width = WIDTH,
-		.height = HEIGHT,
+		.width = 1280,
+		.height = 720,
 		.window_title = "Triangle",
 		.icon.sokol_default = true,
 		.logger.func = slog_func,
 	};
 }
-#endif
-float allow_empty_compilation_main_c;

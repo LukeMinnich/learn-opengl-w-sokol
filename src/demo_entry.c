@@ -1,7 +1,7 @@
-#include "alias.h"
 #include "camera.h"
 #include "mesh.glsl.h"
 #include "mesh.h"
+#include "primitives.h"
 #include "render.h"
 
 #include "handmade_math.h"
@@ -10,6 +10,8 @@
 #include "sokol_glue.h"
 #include "sokol_log.h"
 #include "sokol_time.h"
+
+#include <stdio.h>
 
 #define SHADOW_MAP_SZ 1024
 #define DEBUG_SZ       200
@@ -147,10 +149,10 @@ frame(
 	if (state.animation_paused) {
 		time_paused += diff;
 	}
-	state.delta_time = stm_sec(diff);
+	state.delta_time = (f32)stm_sec(diff);
 	last_frame = current_frame;
 
-	float rot = stm_sec(current_frame - time_paused) * 50.;
+	f32 rot = (f32)stm_sec(current_frame - time_paused) * 50.f;
 
 	HMM_Mat4 plane_model = HMM_Mul(HMM_Rotate_RH(HMM_AngleDeg(-90.f), X_AXIS),
 	                               HMM_Scale(HMM_V3(10.f, 10.f, 10.f)));

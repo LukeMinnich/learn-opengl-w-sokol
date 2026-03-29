@@ -1,7 +1,7 @@
 #ifndef CAMERA_H
 #define CAMERA_H
 
-#include "alias.h"
+#include "primitives.h"
 #include "render.h"
 
 #include "handmade_math.h"
