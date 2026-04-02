@@ -1,4 +1,5 @@
 #include "camera.h"
+#include "image.h"
 #include "mesh.glsl.h"
 #include "mesh.h"
 #include "primitives.h"
@@ -10,8 +11,10 @@
 #include "sokol_glue.h"
 #include "sokol_log.h"
 #include "sokol_time.h"
+#include "texture.h"
 
 #include <stdio.h>
+#include <assert.h>
 
 #define SHADOW_MAP_SZ 1024
 #define DEBUG_SZ       200
@@ -34,10 +37,31 @@ static struct {
 		sg_bindings bind;
 	} dbg;
 	Camera camera;
+	Lighting lighting;
 	bool animation_paused;
 	bool window_focused;
 	f32 delta_time;
 } state = {0};
+
+static DirLight_t g_dir_lights[] = {
+	{
+		.direction = { .X = -0.2f , -1.f  , -0.3f  },
+		.ambient   = { .R =  0.25f,  0.25f,  0.25f },
+		.diffuse   = { .R =  0.4f ,  0.4f ,  0.4f  },
+		.specular  = { .R =  0.5f ,  0.5f ,  0.5f  },
+	},
+};
+static const PointLight_t g_point_lights[] = {
+	{
+		.position  = { .X =  0.7f ,  0.2f ,  2.0f },
+		.ambient   = { .R =  0.05f,  0.05f,  0.05f },
+		.diffuse   = { .R =  0.8f ,  0.8f ,  0.8f  },
+		.specular  = { .R =  1.0f ,  1.0f ,  1.0f  },
+		.constant  = 1.f,
+		.linear    = 0.09f,
+		.quadratic = 0.032f,
+	},
+};
 
 static void
 init(
@@ -89,9 +113,15 @@ init(
 
 	mesh_gen_primitive_tetrahedron(&state.tetrahedron_mesh);
 	mesh_gen_primitive_plane(&state.plane_mesh);
+	mesh_set_texture_defaults(&state.tetrahedron_mesh);
+	mesh_set_texture_defaults(&state.plane_mesh);
 
-	mesh_shadow_pipeline(&state.shadow.pip);
-	mesh_display_pipeline(&state.display.pip);
+	sg_image diffuse_img;
+	load_image("assets/awesomeface.png", true, &diffuse_img);
+	mesh_set_texture(&state.plane_mesh, diffuse_img, TextureKindDiffuse);
+
+	init_mesh_shadow_pipeline(&state.shadow.pip);
+	init_mesh_display_pipeline(&state.display.pip);
 
 	// a vertex buffer, pipeline and sampler to render a debug visualization of the shadow map
 	float dbg_vertices[] = { 0.0f, 0.0f,  1.0f, 0.0f,  0.0f, 1.0f,  1.0f, 1.0f };
@@ -123,6 +153,36 @@ init(
 		.views[VIEW_dbg_tex] = state.display.shadow_map_tex_view,
 		.samplers[SMP_dbg_smp] = dbg_smp,
 	};
+	sg_buffer dir_buffer = sg_make_buffer(&(sg_buffer_desc){
+		.usage.storage_buffer = true,
+		.usage.stream_update = true,
+		.size = sizeof(g_dir_lights),
+		.label = "directional-lights",
+	});
+	sg_buffer point_buffer = sg_make_buffer(&(sg_buffer_desc){
+		.usage.storage_buffer = true,
+		.usage.immutable = true,
+		.data = SG_RANGE(g_point_lights),
+		.label = "point-lights",
+	});
+	state.lighting = (Lighting){
+		.directional = {
+			.view = sg_make_view(&(sg_view_desc){
+				.storage_buffer = { .buffer = dir_buffer },
+				.label = "directional-lights-storage",
+			}),
+			.len = countof(g_dir_lights),
+			.buffer = dir_buffer,
+		},
+		.point = {
+			.view = sg_make_view(&(sg_view_desc){
+				.storage_buffer = { .buffer = point_buffer },
+				.label = "point-lights-storage",
+			}),
+			.len = countof(g_point_lights),
+			.buffer = point_buffer,
+		},
+	};
 }
 
 static HMM_Vec3
@@ -136,6 +196,41 @@ cam_direction_from_pitch_yaw(
 		.Z = sinf(HMM_AngleDeg(yaw)) * cosf(HMM_AngleDeg(pitch)),
 	};
 	return HMM_Norm(dir);
+}
+
+void
+mesh_draw_shadow(
+	Mesh *mesh
+) {
+	sg_bindings bindings = (sg_bindings){
+		.vertex_buffers[0] = mesh->vertex_buffer,
+		.vertex_buffers[1] = mesh_one_instance_buffer(),
+		.index_buffer = mesh->index_buffer,
+	};
+	sg_apply_bindings(&bindings);
+	sg_draw(0, (int)mesh->num_elements, 1);
+}
+
+static void
+mesh_draw_display(
+	Mesh *mesh,
+	sg_view shadow_map_tex_view,
+	sg_sampler shadow_sampler,
+	Lighting *lighting
+){
+	sg_bindings bindings = (sg_bindings){
+		.vertex_buffers[0] = mesh->vertex_buffer,
+		.vertex_buffers[1] = mesh_one_instance_buffer(),
+		.index_buffer = mesh->index_buffer,
+		.views[VIEW_shadow_map] = shadow_map_tex_view,
+		.samplers[SMP_shadow_sampler] = shadow_sampler,
+		.samplers[SMP_tex_sampler] = mesh_display_sampler(),
+		.views[VIEW_in_dir_lights] = lighting->directional.view,
+		.views[VIEW_in_point_lights] = lighting->point.view,
+	};
+	mesh_apply_textures_to_bindings(mesh, &bindings);
+	sg_apply_bindings(&bindings);
+	sg_draw(0, (int)mesh->num_elements, 1);
 }
 
 static void
@@ -158,19 +253,19 @@ frame(
 	                               HMM_Scale(HMM_V3(10.f, 10.f, 10.f)));
 	HMM_Vec3 tetrahedron_pos   = HMM_V3(0.0f, 1.5f, 0.0f);
 	HMM_Mat4 tetrahedron_model = HMM_Translate(tetrahedron_pos);
-	HMM_Vec3 plane_color       = HMM_V3(1.0f, 0.5f, 0.0f);
-	HMM_Vec3 tetrahedron_color = HMM_V3(0.5f, 1.0f, 0.5f);
 
 	// calculate matrices for shadow pass
 	HMM_Mat4 light_rot  = HMM_Rotate_RH(HMM_AngleDeg(rot), Y_AXIS);
-	HMM_Vec4 light_pos  = HMM_Mul(light_rot, HMM_V4(50.f, 50.f, -50.f, 1.0f));
-	HMM_Mat4 light_view = HMM_LookAt_RH(light_pos.XYZ, tetrahedron_pos, CAMERA_UP);
+	HMM_Vec3 light_pos  = HMM_Mul(light_rot, HMM_V4(50.f, 50.f, -50.f, 1.0f)).XYZ;
+	HMM_Vec3 light_dir  = HMM_Norm(HMM_Sub(tetrahedron_pos, light_pos));
+	HMM_Mat4 light_view = HMM_LookAt_RH(light_pos, tetrahedron_pos, CAMERA_UP);
 	// NOTE(luke): use Z0 here and not NO variant of orthographic projection. */
 	HMM_Mat4 light_proj = HMM_Orthographic_RH_ZO(-5.0f, 5.0f, -5.0f, 5.0f, ORTHOGRAPHIC_NEAR, FAR);
 	HMM_Mat4 light_vp   = HMM_Mul(light_proj, light_view);
 
 	vs_shadow_params_t tetrahedron_vs_shadow_params = {
-		.mvp = HMM_Mul(light_vp, tetrahedron_model),
+		.vp = light_vp,
+		.model = tetrahedron_model,
 	};
 
 	// calculate matrices for display pass
@@ -183,24 +278,29 @@ frame(
 	HMM_Mat4 view_proj    = HMM_Mul(proj, view);
 
 	fs_display_params_t fs_display_params = {
-		.light_dir = HMM_NormV3(light_pos.XYZ),
+		.light_dir = light_dir,
 		.eye_pos = state.camera.pos,
-		.shadow_map_size = HMM_V2(SHADOW_MAP_SZ, SHADOW_MAP_SZ),
+		.n_dir_lights = state.lighting.directional.len,
+		// .n_point_lights = state.lighting.point.len,
+		.n_point_lights = 0,
 	};
 	vs_display_params_t plane_vs_display_params = {
-		.mvp = HMM_Mul(view_proj, plane_model),
+		.vp = view_proj,
 		.model = plane_model,
 		.normal_matrix = HMM_Transpose(HMM_InvGeneral(plane_model)),
-		.light_mvp = HMM_Mul(light_vp, plane_model),
-		.diff_color = plane_color,
+		.light_vp = light_vp,
 	};
 	vs_display_params_t tetrahedron_vs_display_params = {
-		.mvp = HMM_Mul(view_proj, tetrahedron_model),
+		.vp = view_proj,
 		.model = tetrahedron_model,
 		.normal_matrix = HMM_Transpose(HMM_InvGeneral(tetrahedron_model)),
-		.light_mvp = HMM_Mul(light_vp, tetrahedron_model),
-		.diff_color = tetrahedron_color,
+		.light_vp = light_vp,
 	};
+
+	assert(1 == state.lighting.directional.len);
+	assert(1 == countof(g_dir_lights));
+	g_dir_lights[0].direction = light_dir;
+	sg_update_buffer(state.lighting.directional.buffer, &SG_RANGE(g_dir_lights));
 
 	// the shadow map pass, render scene from light source into shadow map texture
 	sg_begin_pass(&(sg_pass){
@@ -234,11 +334,11 @@ frame(
 
 	sg_apply_uniforms(UB_vs_display_params, &SG_RANGE(tetrahedron_vs_display_params));
 	mesh_draw_display(&state.tetrahedron_mesh, state.display.shadow_map_tex_view,
-	                  state.display.shadow_sampler);
+	                  state.display.shadow_sampler, &state.lighting);
 
 	sg_apply_uniforms(UB_vs_display_params, &SG_RANGE(plane_vs_display_params));
 	mesh_draw_display(&state.plane_mesh, state.display.shadow_map_tex_view,
-	                  state.display.shadow_sampler);
+	                  state.display.shadow_sampler, &state.lighting);
 
 	// render debug visualization of shadow-map
 	sg_apply_pipeline(state.dbg.pip);

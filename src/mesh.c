@@ -6,20 +6,22 @@
 #include "handmade_math.h"
 
 #include "sokol_gfx.h"
+#include "texture.h"
 
 #include <assert.h>
 
 void
-mesh_shadow_pipeline(
+init_mesh_shadow_pipeline(
 	sg_pipeline *pipeline
 ) {
 	assert(!pipeline->id);
 	*pipeline = sg_make_pipeline(&(sg_pipeline_desc){
 		.shader = sg_make_shader(shadow_shader_desc(sg_query_backend())),
 		.layout = {
-			.buffers[0].stride = sizeof(MeshVertex),
+			.buffers[0] = { .stride = sizeof(MeshVertex) },
+			.buffers[1] = { .step_func = SG_VERTEXSTEP_PER_INSTANCE },
 			.attrs[ATTR_shadow_position]  = { .format = SG_VERTEXFORMAT_FLOAT3, .buffer_index = 0 },
-			// TODO(luke): bind per-instance data here
+			.attrs[ATTR_shadow_iposition] = { .format = SG_VERTEXFORMAT_FLOAT3, .buffer_index = 1 },
 		},
 		.depth = {
 			.write_enabled = true,
@@ -38,18 +40,20 @@ mesh_shadow_pipeline(
 }
 
 void
-mesh_display_pipeline(
+init_mesh_display_pipeline(
 	sg_pipeline *pipeline
 ) {
 	assert(!pipeline->id);
 	*pipeline = sg_make_pipeline(&(sg_pipeline_desc){
 		.shader = sg_make_shader(display_shader_desc(sg_query_backend())),
 		.layout = {
+			.buffers[0] = { .stride = sizeof(MeshVertex) },
+			.buffers[1] = { .step_func = SG_VERTEXSTEP_PER_INSTANCE },
 			.attrs[ATTR_display_position]  = { .format = SG_VERTEXFORMAT_FLOAT3, .buffer_index = 0 },
 			.attrs[ATTR_display_normal]    = { .format = SG_VERTEXFORMAT_FLOAT3, .buffer_index = 0 },
 			.attrs[ATTR_display_tangent]   = { .format = SG_VERTEXFORMAT_FLOAT3, .buffer_index = 0 },
 			.attrs[ATTR_display_tex_coord] = { .format = SG_VERTEXFORMAT_FLOAT2, .buffer_index = 0 },
-			// TODO(luke): bind per-instance data here
+			.attrs[ATTR_display_iposition] = { .format = SG_VERTEXFORMAT_FLOAT3, .buffer_index = 1 },
 		},
 		.depth = {
 			.write_enabled = true,
@@ -58,32 +62,22 @@ mesh_display_pipeline(
 		.cull_mode = SG_CULLMODE_BACK,
 		.face_winding = SG_FACEWINDING_CCW,
 		.index_type = MESH_INDEX_TYPE,
-		.label = "mesh-render-pipeline",
+		.sample_count = OFFSCREEN_SAMPLE_COUNT,
+		.label = "mesh-display-pipeline",
 	});
 }
 
-typedef struct {
-	MeshVertex *d;
-	u32 n;
-} MeshVertexView;
-
-typedef struct {
-	MeshTriangle *d;
-	u32 n;
-} MeshTriangleView;
-
-#define ArrView(T, a) ((T##View){ .d = (a), .n = countof(a) })
-
-static void
-mesh_fixup_vertex_bivectors(
+void
+mesh_fixup_bivectors(
 	MeshVertexView *vertices,
-	MeshTriangleView *triangles
+	MeshTriangleView *triangles,
+	bool fixup_normals
 ) {
-	for (usize i = 0; i < triangles->n; ++i) {
-		MeshTriangle *triangle = &triangles->d[i];
-		MeshVertex *v0 = &vertices->d[triangle->indices[0]];
-		MeshVertex *v1 = &vertices->d[triangle->indices[1]];
-		MeshVertex *v2 = &vertices->d[triangle->indices[2]];
+	for (usize i = 0; i < triangles->len; ++i) {
+		MeshTriangle *triangle = &triangles->ptr[i];
+		MeshVertex *v0 = &vertices->ptr[triangle->indices[0]];
+		MeshVertex *v1 = &vertices->ptr[triangle->indices[1]];
+		MeshVertex *v2 = &vertices->ptr[triangle->indices[2]];
 		HMM_Vec3 e1 = HMM_Sub(v1->position , v0->position);
 		HMM_Vec3 e2 = HMM_Sub(v2->position , v0->position);
 		HMM_Vec2 d1 = HMM_Sub(v1->tex_coord, v0->tex_coord);
@@ -97,10 +91,14 @@ mesh_fixup_vertex_bivectors(
 		v0->tangent = tangent;
 		v1->tangent = tangent;
 		v2->tangent = tangent;
-		HMM_Vec3 normal = HMM_Norm(HMM_Cross(e1, e2));
-		v0->normal = normal;
-		v1->normal = normal;
-		v2->normal = normal;
+		if (fixup_normals) {
+			HMM_Vec3 normal = HMM_Norm(HMM_Cross(e1, e2));
+			v0->normal = normal;
+			v1->normal = normal;
+			v2->normal = normal;
+		}
+		/* If not fixing up normals, we'll need to re-orthogonalize the TBN vectors in the vertex
+		   shader */
 	}
 }
 
@@ -148,21 +146,8 @@ void
 		 {9, 10, 11},
 	};
 
-	mesh_fixup_vertex_bivectors(&ArrView(MeshVertex, vertices),
-	                            &ArrView(MeshTriangle, triangles));
-
-	*mesh = (Mesh){
-		.vertex_buffer = sg_make_buffer(&(sg_buffer_desc){
-			.data = SG_RANGE(vertices),
-			.label = "cube-vertex-buffer",
-		}),
-		.index_buffer = sg_make_buffer(&(sg_buffer_desc){
-			.usage.index_buffer = true,
-			.data = SG_RANGE(triangles),
-			.label = "cube-index-buffer",
-		}),
-		.num_elements = countof(triangles) * countof(((MeshTriangle *)NULL)->indices),
-	};
+	mesh_fixup_bivectors(&av(MeshVertex, vertices), &av(MeshTriangle, triangles), true);
+	mesh_init_raw(&av(MeshVertex, vertices), &av(MeshTriangle, triangles), mesh);
 }
 
 
@@ -226,21 +211,8 @@ mesh_gen_primitive_cube(
 		triangles[i * 2 + 1] = (MeshTriangle){ { off + 2, off + 1, off + 3 } };
 	}
 
-	mesh_fixup_vertex_bivectors(&ArrView(MeshVertex, vertices),
-	                            &ArrView(MeshTriangle, triangles));
-
-	*mesh = (Mesh){
-		.vertex_buffer = sg_make_buffer(&(sg_buffer_desc){
-			.data = SG_RANGE(vertices),
-			.label = "cube-vertex-buffer",
-		}),
-		.index_buffer = sg_make_buffer(&(sg_buffer_desc){
-			.usage.index_buffer = true,
-			.data = SG_RANGE(triangles),
-			.label = "cube-index-buffer",
-		}),
-		.num_elements = countof(triangles) * countof(((MeshTriangle *)NULL)->indices),
-	};
+	mesh_fixup_bivectors(&av(MeshVertex, vertices), &av(MeshTriangle, triangles), true);
+	mesh_init_raw(&av(MeshVertex, vertices), &av(MeshTriangle, triangles), mesh);
 }
 
 void
@@ -256,45 +228,132 @@ mesh_gen_primitive_plane(
 	};
 	MeshTriangle triangles[] = { {0, 1, 2}, {2, 1, 3} };
 
-	mesh_fixup_vertex_bivectors(&ArrView(MeshVertex, vertices),
-	                            &ArrView(MeshTriangle, triangles));
+	mesh_fixup_bivectors(&av(MeshVertex, vertices), &av(MeshTriangle, triangles), true);
+	mesh_init_raw(&av(MeshVertex, vertices), &av(MeshTriangle, triangles), mesh);
+}
 
+typedef sg_image (*default_texture_gen)(void);
+#include "texture_kind.h"
+#define X_TEXTURE_KINDS(kind, _, gen, ...) [kind] = gen,
+static const default_texture_gen default_texture_images[] = { TEXTURE_KINDS };
+
+bool
+texture_image_is_default(
+	sg_image img,
+	TextureKind kind
+) {
+	return img.id == default_texture_images[kind]().id;
+}
+
+void
+mesh_set_texture_defaults(
+	Mesh *mesh
+) {
+	#include "texture_kind.h"
+	#define X_TEXTURE_KINDS(kind, _, gen, ...)    \
+	  mesh->textures[kind] = gen##_texture(kind); \
+	  mesh->texture_images[kind] = default_texture_images[kind]();
+	TEXTURE_KINDS
+}
+
+void
+mesh_set_texture(
+	Mesh *mesh,
+	sg_image img,
+	TextureKind kind
+) {
+	if (   !mesh->textures[kind].id
+	    && !texture_image_is_default(mesh->texture_images[kind], kind)) {
+		assert(false && "texture already set to non-default");
+	}
+	mesh->textures[kind] = sg_make_view(&(sg_view_desc){
+		.texture.image = img,
+		.label = str_from_texture_kind(kind).ptr,
+	});
+}
+
+void
+mesh_init_raw(
+	MeshVertexView *vertices,
+	MeshTriangleView *triangles,
+	Mesh *mesh
+) {
+	assert(!mesh->vertex_buffer.id);
+	assert(!mesh->index_buffer.id);
 	*mesh = (Mesh){
 		.vertex_buffer = sg_make_buffer(&(sg_buffer_desc){
-		.data = SG_RANGE(vertices),
-		.label = "plane-vertex-buffer",
+			.usage.vertex_buffer = true,
+			.usage.immutable = true,
+			.data = { .ptr = vertices->ptr, .size = vertices->len * sizeof(*vertices->ptr) },
+			.label = "mesh-vertex-buffer",
 		}),
 		.index_buffer = sg_make_buffer(&(sg_buffer_desc){
 			.usage.index_buffer = true,
-			.data = SG_RANGE(triangles),
-			.label = "plane-index-buffer",
+			.usage.immutable = true,
+			.data = { .ptr = triangles->ptr, .size = triangles->len * sizeof(*triangles->ptr) },
+			.label = "mesh-index-buffer",
 		}),
-		.num_elements = countof(triangles) * countof(((MeshTriangle *)NULL)->indices),
+		.num_elements = triangles->len * countof(((MeshTriangle *)NULL)->indices),
+	};
+	mesh_set_texture_defaults(mesh);
+}
+
+MeshInstances
+mesh_instances(
+	usize num_instances
+) {
+	assert(num_instances > 1 && "use `mesh_one_instance_buffer()` instead");
+	return (MeshInstances){
+		.buffer = sg_make_buffer(&(sg_buffer_desc){
+			.usage.vertex_buffer = true,
+			.usage.stream_update = true,
+			.size = sizeof(MeshInstanceData) * num_instances,
+			.label = "many-instances-buffer",
+		}),
+		.num_instances = num_instances,
 	};
 }
 
-void
-mesh_draw_shadow(
-	Mesh *mesh
-){
-	sg_apply_bindings(&(sg_bindings){
-		.vertex_buffers[0] = mesh->vertex_buffer,
-		.index_buffer = mesh->index_buffer,
-	});
-	sg_draw(0, (int)mesh->num_elements, 1);
+static sg_buffer one_instance_buffer = {0};
+static MeshInstanceData one_instance_no_translation[1] = {{0}};
+
+sg_buffer
+mesh_one_instance_buffer(
+	void
+) {
+	if (!one_instance_buffer.id) {
+		one_instance_buffer = sg_make_buffer(&(sg_buffer_desc){
+			.usage.vertex_buffer = true,
+			.usage.immutable = true,
+			.data = SG_RANGE(one_instance_no_translation),
+			.label = "one-instance-buffer"
+		});
+	}
+	return one_instance_buffer;
 }
 
 void
-mesh_draw_display(
+mesh_apply_textures_to_bindings(
 	Mesh *mesh,
-	sg_view shadow_map_tex_view,
-	sg_sampler shadow_sampler
-){
-	sg_apply_bindings(&(sg_bindings){
-		.vertex_buffers[0] = mesh->vertex_buffer,
-		.index_buffer = mesh->index_buffer,
-		.views[VIEW_shadow_map] = shadow_map_tex_view,
-		.samplers[SMP_shadow_sampler] = shadow_sampler,
-	});
-	sg_draw(0, (int)mesh->num_elements, 1);
+	sg_bindings *bindings
+) {
+	for (TextureKind kind = 0; kind < TextureKindCount; ++kind) {
+		sg_view texture = mesh->textures[kind];
+		assert(sg_query_view_state(texture));
+		switch (kind) {
+	  case TextureKindDiffuse:
+	  	bindings->views[VIEW_diffuseTexture] = texture;
+		  break;
+	  case TextureKindSpecular:
+	  	bindings->views[VIEW_specularTexture] = texture;
+		  break;
+	  case TextureKindNone:
+	  case TextureKindEmissive:
+	  case TextureKindNormal:
+	  case TextureKindParallax:
+	  	assert(   texture_image_is_default(mesh->texture_images[kind], kind)
+	  	       && "implement me!");
+		  break;
+	  }
+	}
 }

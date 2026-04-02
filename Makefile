@@ -25,7 +25,7 @@ CFLAGS   := -MMD
 CFLAGS   += -Werror -Wall -Wextra -Wpedantic -Wshadow -Wswitch-enum
 # CFLAGS   += -Weverything
 # CFLAGS   += -Wno-declaration-after-statement -Wno-reserved-identifier -Wno-padded -Wno-anon-enum-enum-conversion -Wno-pre-c11-compat -Wno-poison-system-directories -Wno-bad-function-cast -Wno-implicit-float-conversion -Wno-double-promotion -Wno-used-but-marked-unused -Wno-nullable-to-nonnull-conversion -Wno-switch-enum -Wno-cast-qual -Wno-four-char-constants -Wno-missing-prototypes -Wno-cstring-format-directive -Wno-objc-messaging-id -Wno-selector
-CFLAGS   += -Wno-empty-translation-unit
+CFLAGS   += -Wno-empty-translation-unit -Wno-variadic-macro-arguments-omitted
 ifeq ($(CONFIG), debug)
 CFLAGS   += -g3 -O0 -DDEBUG
 CFLAGS   += -fsanitize=address -fsanitize=undefined -fstack-protector-strong
@@ -70,7 +70,7 @@ $(TMP)/main_entry.o: $(SRC)/main_entry.c
 	mkdir -p $(@D)
 	$(CC) -c $(CPPFLAGS) $(CFLAGS) $< -o $@
 
-SOKOL_SRC := $(LIB)/sokol/sokol.m
+SOKOL_SRC := $(LIB)/sokol/sokol.m $(LIB)/sokol/sokol_gfx.c
 SOKOL_OBJ := $(TMP)/sokol/sokol.o
 
 $(SOKOL_OBJ): $(SOKOL_SRC)

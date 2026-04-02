@@ -10,13 +10,15 @@
 @glsl_options fixup_clipspace // important: map clipspace z from -1..+1 to 0..+1 on GL
 
 layout(binding=0) uniform vs_shadow_params {
-    mat4 mvp;
+    mat4 vp;
+    mat4 model;
 };
 
 in vec3 position;
+in vec3 iposition;
 
 void main() {
-    gl_Position = mvp * vec4(position, 1.);
+    gl_Position = vp * (model * vec4(position, 1.) + vec4(iposition, 0.f));
 }
 @end
 
@@ -30,108 +32,186 @@ void main() { }
 @vs vs_display
 
 layout(binding=0) uniform vs_display_params {
-    mat4 mvp;
-    mat4 model;
-    mat4 normal_matrix;
-    mat4 light_mvp;
-    vec3 diff_color;
+	mat4 vp;
+	mat4 model;
+	mat4 normal_matrix;
+	mat4 light_vp;
 };
 
 in vec3 position;
 in vec3 normal;
 in vec3 tangent;
-in vec3 tex_coord;
+in vec2 tex_coord;
+in vec3 iposition;
 
-out vec3 color;
 out vec4 light_proj_pos;
 
 out THRU {
 	vec3 world_pos;
 	vec3 world_norm;
+	vec2 tex_coord;
 } vs_out;
 
-void main() {
-    vec4 pos_hom = vec4(position, 1.);
-    gl_Position = mvp * pos_hom;
-    light_proj_pos = light_mvp * pos_hom;
-    #if !SOKOL_GLSL
-        light_proj_pos.y = -light_proj_pos.y;
-    #endif
-    vs_out.world_pos = vec3(model * pos_hom);
-    vs_out.world_norm = mat3(normal_matrix) * normal;
-    color = diff_color;
+void
+main(
+	void
+) {
+	/* NOTE(luke): instance position is really a direction vector (an offset position), hence its
+	   `w` ordinate is zero. */
+	vec4 world_pos = model * vec4(position, 1.) + vec4(iposition, 0.);
+	gl_Position = vp * world_pos;
+	light_proj_pos = light_vp * world_pos;
+	#if !SOKOL_GLSL
+		light_proj_pos.y = -light_proj_pos.y;
+	#endif
+	vs_out.world_pos = vec3(world_pos);
+	vs_out.world_norm = mat3(normal_matrix) * normal;
+	vs_out.tex_coord = tex_coord;
 }
 @end
 
 @fs fs_display
-
-layout(binding=1) uniform fs_display_params {
-    vec3 light_dir;
-    vec3 eye_pos;
-    vec2 shadow_map_size;
+layout(binding = 0) uniform sampler tex_sampler;
+layout(binding = 1) uniform fs_display_params {
+	vec3 light_dir;
+	vec3 eye_pos;
+	int n_dir_lights;
+	int n_point_lights;
 };
 
-layout(binding=0) uniform texture2D shadow_map;
-layout(binding=0) uniform sampler shadow_sampler;
+layout(binding = 0) uniform texture2D diffuseTexture;
+layout(binding = 1) uniform texture2D specularTexture;
 
-in vec3 color;
+struct DirLight {
+	vec3 direction;
+	vec3 ambient;
+	vec3 diffuse;
+	vec3 specular;
+};
+layout(binding = 2) readonly buffer in_dir_lights {
+	DirLight dir_lights[];
+};
+
+struct PointLight {
+	vec3 position;
+	vec3 ambient;
+	vec3 diffuse;
+	vec3 specular;
+	float constant;
+	float linear;
+	float quadratic;
+};
+layout(binding=3) readonly buffer in_point_lights {
+	PointLight point_lights[];
+};
+
+layout(binding = 10) uniform texture2D shadow_map;
+layout(binding = 10) uniform sampler shadow_sampler;
+
 in vec4 light_proj_pos;
 
 in THRU {
 	vec3 world_pos;
 	vec3 world_norm;
+	vec2 tex_coord;
 } fs_in;
 
 out vec4 frag_color;
 
 void
 apply_gamma_correction(
-    inout vec3 color
+	inout vec3 color
 ) {
-    color = pow(abs(color), vec3(1. / 2.2));
+	color = pow(abs(color), vec3(1. / 2.2));
+}
+
+void
+srgb_to_linear(
+	inout vec3 color
+) {
+	color = pow(abs(color), vec3(2.2));
 }
 
 float
 pcf_shadow(
-    vec4 light_proj_pos_
+	vec4 light_proj_pos_
 ) {
-    vec3 light_pos = light_proj_pos_.xyz / light_proj_pos_.w;
-    vec3 sm_pos = vec3((light_pos.xy + 1.0) * 0.5, light_pos.z);
-    if (sm_pos.z < 0. || sm_pos.z > 1.) {
-        /* Fragment lands outside of shadow map orthographic view frustum. */ 
-        return 0.f; // corresponds to SG_BORDERCOLOR_OPAQUE_BLACK
-    }
-    float shadow = 0.;
-    vec2 texel_size = 1. / shadow_map_size;
-    for (int x = -1; x <= 1; ++x) {
-        for (int y = -1; y <= 1; ++y) {
-            shadow += texture(sampler2DShadow(shadow_map, shadow_sampler),
-                              sm_pos + vec3(vec2(x, y) * texel_size, 0.f));
-        }
-    }
-    return shadow / 9.;
+	vec3 light_pos = light_proj_pos_.xyz / light_proj_pos_.w;
+	vec3 sm_pos = vec3((light_pos.xy + 1.0) * 0.5, light_pos.z);
+	if (sm_pos.z < 0. || sm_pos.z > 1.) {
+		/* Fragment lands outside of shadow map orthographic view frustum. */ 
+		return 0.f; // corresponds to SG_BORDERCOLOR_OPAQUE_BLACK
+	}
+	/* NOTE(luke): it is my understanding that `sampler2DShadow()` usually performs some sort of PCF,
+	   though it may be implementation defined. */
+	return texture(sampler2DShadow(shadow_map, shadow_sampler), sm_pos);
 }
 
-void main() {
-    float spec_power = 2.2;
-    float ambient_intensity = 0.25;
-    vec3 l = normalize(light_dir);
-    vec3 n = normalize(fs_in.world_norm);
-    float n_dot_l = dot(n, l);
-    if (n_dot_l > 0.0) {
-        float s = pcf_shadow(light_proj_pos);
-        float diff_intensity = max(n_dot_l * s, 0.0);
+vec3
+calc_dir_light(
+	DirLight light,
+	vec3 normal,
+	vec3 view_dir
+) {
+	vec3 lightDir = normalize(-light.direction);
+	// sample texture for diffuse/ambient
+	vec3 sampled_diffuse  = vec3(texture(sampler2D(diffuseTexture , tex_sampler), fs_in.tex_coord));
+	vec3 sampled_specular = vec3(texture(sampler2D(specularTexture, tex_sampler), fs_in.tex_coord));
+	srgb_to_linear(sampled_diffuse);
+	// ambient
+	vec3 ambient = light.ambient * sampled_diffuse;
+	// diffuse
+	float diff = max(dot(normal, lightDir), 0.);
+	vec3 diffuse = light.diffuse * diff * sampled_diffuse;
+	// specular (w/ Blinn-Phong modifications)
+	vec3 halfwayDir = normalize(lightDir + view_dir);
+	float mat_shininess = 128.;
+	float spec = pow(max(dot(normal, halfwayDir), 0.), mat_shininess);
+	vec3 specular = light.specular * spec * sampled_specular;
+	// shadow
+	float shadow = pcf_shadow(light_proj_pos);
+	return ambient + shadow * (diffuse + specular);
+}
 
-        vec3 v = normalize(eye_pos - fs_in.world_pos);
-        vec3 r = reflect(-l, n);
-        float r_dot_v = max(dot(r, v), 0.0);
-        float spec_intensity = pow(r_dot_v, spec_power) * n_dot_l * s;
+vec3
+calc_point_light(
+	PointLight light,
+	vec3 normal,
+	vec3 viewDir,
+	vec3 fragPos
+) {
+	DirLight equiv_dir_light;
+	equiv_dir_light.direction = fragPos - light.position, // expect normalization in `calc_dir_light()`
+	equiv_dir_light.ambient   = light.ambient;
+	equiv_dir_light.diffuse   = light.diffuse;
+	equiv_dir_light.specular  = light.specular;
 
-        frag_color = vec4(vec3(spec_intensity) + (diff_intensity + ambient_intensity) * color, 1.0);
-    } else {
-        frag_color = vec4(color * ambient_intensity, 1.0);
-    }
-    apply_gamma_correction(frag_color.xyz);
+	vec3 result = calc_dir_light(equiv_dir_light, normal, viewDir);
+
+	// attenuation
+	float distance = length(light.position - fragPos);
+	float attenuation = 1. / (light.constant + light.linear * distance + light.quadratic * distance * distance);
+
+	return attenuation * result;
+}
+
+void
+main(
+	void
+) {
+	vec3 normal = normalize(fs_in.world_norm);
+	vec3 view_dir = normalize(eye_pos - fs_in.world_pos);
+
+	vec3 result = vec3(0.);
+	for (int i = 0; i < n_dir_lights; ++i) {
+		result += calc_dir_light(dir_lights[i], normal, view_dir);
+	}
+	for (int i = 0; i < n_point_lights; ++i) {
+		result += calc_point_light(point_lights[i], normal, view_dir, fs_in.world_pos);
+	}
+
+	apply_gamma_correction(result);
+	frag_color = vec4(result, 1.);
 }
 @end
 

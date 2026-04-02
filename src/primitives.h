@@ -21,8 +21,6 @@ typedef double f64;
 typedef size_t usize;
 
 #define countof(x) (sizeof(x) / sizeof(x[0]))
-/* Buffer to Pointer, Count */
-#define B2PC(x) (x), countof(x)
 
 #define NOOP
 
@@ -54,5 +52,9 @@ sv_eq(
 	return a.len == b.len
 	    && !memcmp(a.ptr, b.ptr, a.len);
 }
+
+/* "ArrayView" */
+#define av(T, a) ((T##View){ .ptr = (a), .len = countof(a) })
+
 
 #endif // PRIMITIVES_H

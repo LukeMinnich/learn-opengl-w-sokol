@@ -45,7 +45,7 @@ test_sv_print(
 ) {
 	StringView print_me = sv("print me!");
 	char buf[32];
-	snprintf(B2PC(buf), "printed: " PRISV "\n", SV(print_me));
+	snprintf(buf, sizeof(buf), "printed: " PRISV "\n", SV(print_me));
 	TEST_ASSERT_EQUAL_STRING("printed: print me!\n", buf);
 }
 
