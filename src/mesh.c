@@ -226,7 +226,7 @@ mesh_gen_primitive_plane(
 		{ .position = HMM_V3(-dim,  dim, 0.f), .tex_coord = HMM_V2(0.f, 1.f) },
 		{ .position = HMM_V3( dim,  dim, 0.f), .tex_coord = HMM_V2(1.f, 1.f) },
 	};
-	MeshTriangle triangles[] = { {0, 1, 2}, {2, 1, 3} };
+	MeshTriangle triangles[] = { {0, 1, 2}, {3, 2, 1} };
 
 	mesh_fixup_bivectors(&av(MeshVertex, vertices), &av(MeshTriangle, triangles), true);
 	mesh_init_raw(&av(MeshVertex, vertices), &av(MeshTriangle, triangles), mesh);

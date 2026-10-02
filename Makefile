@@ -55,7 +55,7 @@ $(OUT)/demo: $(DEMO_OBJECTS)
 	mkdir -p $(@D)
 	$(CC) $(LDFLAGS) $(DEMO_OBJECTS) -o $@
 
-$(TMP)/demo_entry.o: $(SRC)/demo_entry.c
+$(TMP)/demo_entry.o: $(SRC)/demo_entry.c $(SHD_MK)
 	mkdir -p $(@D)
 	$(CC) -c $(CPPFLAGS) $(CFLAGS) $< -o $@
 
@@ -66,7 +66,7 @@ $(OUT)/main: $(MAIN_OBJECTS)
 	mkdir -p $(@D)
 	$(CC) $(LDFLAGS) $(MAIN_OBJECTS) -o $@
 
-$(TMP)/main_entry.o: $(SRC)/main_entry.c
+$(TMP)/main_entry.o: $(SRC)/main_entry.c $(SHD_MK)
 	mkdir -p $(@D)
 	$(CC) -c $(CPPFLAGS) $(CFLAGS) $< -o $@
 
@@ -118,6 +118,7 @@ superclean: clean
 SHDC := tools/sokol-shdc
 
 $(SHD_MK): $(SHD_TARGETS)
+	touch $@
 
 $(SHD_TARGETS): %.h : %
 	$(SHDC) -i $< -o $@ -l metal_macos

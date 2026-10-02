@@ -3815,9 +3815,9 @@ _SOKOL_PRIVATE GLenum _sg_gl_buffer_usage(const sg_buffer_usage* usg) {
     if (usg->immutable) {
         return GL_STATIC_DRAW;
     } else if (usg->dynamic_update) {
-        return GL_DYNAMIC_DRAW;
-    } else if (usg->stream_update) {
         return GL_STREAM_DRAW;
+    } else if (usg->stream_update) {
+        return GL_DYNAMIC_DRAW;
     } else {
         SOKOL_UNREACHABLE; return 0;
     }
